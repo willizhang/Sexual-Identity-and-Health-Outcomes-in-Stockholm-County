@@ -1,0 +1,638 @@
+---
+title: "Sexual identity and health outcomes in Stockholm County, SPHC-2010"
+author: Guoqiang Zhang
+email: guoqiang.zhang@ki.se
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+### 1. Load Packages
+```{r}
+library(haven)
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(finalfit)
+library(ggplot2)
+library(naniar)
+library(jomo)
+library(mitml)
+library(mitools)
+library(survey)
+library(svyVGAM)
+library(vcd)
+library(rcompanion)
+source("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Postdoc Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/Helper_functions.R") # helper function
+```
+
+### 2. Import and Prepare Data
+```{r}
+load("/Volumes/LGBT Project data/d_2010.RData")
+
+# sampling strata
+n_miss( d_2010$stratum )
+d_2010$sampling_strata <- as.factor( d_2010$stratum )
+length( unique( d_2010$sampling_strata ) ) # 39 strata
+
+d_2010 <- d_2010 %>%
+  mutate( sampling_strata_region = recode( sampling_strata, 
+                                           `2101` = "Upplands-Väsby",
+                                           `2102` = "Vallentuna",
+                                           `2103` = "Österåker",
+                                           `2104` = "Värmdö",
+                                           `2105` = "Järfälla",
+                                           `2106` = "Ekerö",
+                                           `2107` = "Huddinge",
+                                           `2108` = "Botkyrka",
+                                           `2109` = "Salem",
+                                           `2110` = "Haninge",
+                                           `2111` = "Tyresö",
+                                           `2112` = "Upplands-Bro",
+                                           `2113` = "Nykvarn",
+                                           `2114` = "Täby",
+                                           `2115` = "Danderyd",
+                                           `2116` = "Sollentuna",
+                                           `2117` = "Södertälje",
+                                           `2118` = "Nacka",
+                                           `2119` = "Sundbyberg",
+                                           `2120` = "Solna",
+                                           `2121` = "Lidingö",
+                                           `2122` = "Vaxholm",
+                                           `2123` = "Norrtälje",
+                                           `2124` = "Sigtuna",
+                                           `2125` = "Nynäshamn",
+                                           `2201` = "Rinkeby-Kista",
+                                           `2202` = "Spånga-Tensta",
+                                           `2203` = "Hässelby-Vällingby",
+                                           `2204` = "Bromma",
+                                           `2205` = "Kungsholmen",
+                                           `2206` = "Norrmalm",
+                                           `2207` = "Östermalm",
+                                           `2208` = "Södermalm",
+                                           `2209` = "Enskede-Årsta-Vantör",
+                                           `2210` = "Skarpnäck",
+                                           `2211` = "Farsta",
+                                           `2212` = "Älvsjö",
+                                           `2213` = "Hägersten-Liljeholmen",
+                                           `2214` = "Skärholmen"
+                                           ) )
+
+# sexual identity in 2010
+table( d_2010$F10U87G78, useNA = "always" )
+d_2010$F10U87G78[ d_2010$F10U87G78 == 9 ] <- NA
+d_2010$sexual_identity_2010 <- factor( ifelse( d_2010$F10U87G78 == 1, "Heterosexual",
+                                                  ifelse( d_2010$F10U87G78 == 2, "Homosexual",
+                                                          ifelse( d_2010$F10U87G78 == 3, "Bisexual", "Uncertain" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Uncertain" ) )
+table( d_2010$sexual_identity_2010, useNA = "always" )
+
+# sexual identity in 2014
+table( d_2010$F14F103, useNA = "always" )
+d_2010$sexual_identity_2014 <- factor( ifelse( d_2010$F14F103 == 1, "Heterosexual",
+                                                  ifelse( d_2010$F14F103 == 2, "Homosexual",
+                                                          ifelse( d_2010$F14F103 == 3, "Bisexual", "None of the above" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "None of the above" ) )
+table( d_2010$sexual_identity_2014, useNA = "always" )
+
+# sexual identity in 2021
+table( d_2010$F21F91, useNA = "always" )
+d_2010$sexual_identity_2021 <- factor( ifelse( d_2010$F21F91 == 1, "Heterosexual",
+                                                  ifelse( d_2010$F21F91 == 2, "Homosexual",
+                                                          ifelse( d_2010$F21F91 == 3, "Bisexual", "None of the above" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "None of the above" ) )
+table( d_2010$sexual_identity_2021, useNA = "always" )
+
+# any change in sexual identity in 2010-2021
+d_2010 <- d_2010 %>%
+  mutate(
+    sexual_identity_fluidity = ifelse(
+      replace( as.character( sexual_identity_2010 ), sexual_identity_2010 == "Uncertain", "Other" ) != 
+        replace( as.character( sexual_identity_2014 ), sexual_identity_2014 == "None of the above", "Other" ) | 
+        replace( as.character( sexual_identity_2010 ), sexual_identity_2010 == "Uncertain", "Other" ) != 
+        replace( as.character( sexual_identity_2021 ), sexual_identity_2021 == "None of the above", "Other" ) |
+        replace( as.character( sexual_identity_2014 ), sexual_identity_2014 == "None of the above", "Other" ) != 
+        replace( as.character( sexual_identity_2021 ), sexual_identity_2021 == "None of the above", "Other" ),
+      1, 
+      0
+      )
+    )
+
+# sex
+table( d_2010$kon, useNA = "always" )
+d_2010$sex <- factor( ifelse( d_2010$kon == 1, "Male", "Female" ),
+                      levels = c( "Male", "Female" ) )
+table( d_2010$sex, useNA = "always" )
+
+# age
+summary( d_2010$F10alder )
+d_2010$age <- d_2010$F10alder
+d_2010$age_cat <- factor( ifelse( d_2010$age <= 29, "18-29", 
+                                  ifelse( d_2010$age >=30 & d_2010$age <= 44, "30-44",
+                                          ifelse( d_2010$age >= 45 & d_2010$age <= 59, "45-59", ">=60" ) ) ),
+                          levels = c( "18-29", "30-44", "45-59", ">=60" ) )
+table( d_2010$age_cat, useNA = "always" )
+
+# interaction term between age and sex
+d_2010$age_sex <- interaction( d_2010$age_cat, d_2010$sex )
+
+# generation
+d_2010$birth_year <- 2010 - d_2010$age
+d_2010 <- d_2010 %>%
+  mutate( generation = case_when(
+    birth_year >= 1981 & birth_year <= 1996 ~ "Millennials (1981–1996)",
+    birth_year >= 1965 & birth_year <= 1980 ~ "Generation X (1965–1980)",
+    birth_year >= 1946 & birth_year <= 1964 ~ "Baby Boomers (1946–1964)",
+    birth_year >= 1928 & birth_year <= 1945 ~ "Silent Generation (1928–1945)",
+    birth_year >= 1901 & birth_year <= 1927 ~ "Greatest Generation (1901–1927)"
+    ) )
+
+d_2010$generation <- factor( 
+  d_2010$generation, 
+  levels = c( "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) )
+summary( d_2010$generation )
+
+# country of birth
+table( d_2010$fodelseland, useNA = "always" )
+d_2010$country_of_birth <- factor( ifelse( d_2010$fodelseland == "Afrika", "Africa",
+                                           ifelse( d_2010$fodelseland == "Asien", "Asia",
+                                                   ifelse( d_2010$fodelseland == "Europa", "Europe",
+                                                           ifelse( d_2010$fodelseland == "Sverige", "Sweden", "Americas" ) ) ) ),
+                                   levels = c( "Africa", "Americas", "Asia", "Europe", "Sweden" ) )
+table( d_2010$country_of_birth, useNA = "always" )
+
+# education
+table( d_2010$utbniva2010, useNA = "always" )
+d_2010$education <- factor( ifelse( d_2010$utbniva2010 <= 2, "<=9 years",
+                                    ifelse( d_2010$utbniva2010 <= 4, "10-12 years", ">=13 years" ) ), 
+                            levels = c( "<=9 years", "10-12 years", ">=13 years" ) )
+table( d_2010$education, useNA = "always" )
+
+# occupation
+table( d_2010$SSYK_kl, useNA = "always" )
+d_2010$occupation <- factor(
+  ifelse(
+    d_2010$SSYK_kl == "Yrken inom byggverksamhet och tillverkning" |
+      d_2010$SSYK_kl == "Yrken inom lantbruk, trädgård, skogsbruk och fiske" |
+      d_2010$SSYK_kl == "Yrken inom maskinell tillverkning och transport m.m.",
+    "Manual and field trades",
+    ifelse(
+      d_2010$SSYK_kl == "Service-, omsorgs- och försäljningsyrken" |
+        d_2010$SSYK_kl == "Yrken inom administration och kundtjänst" |
+        d_2010$SSYK_kl == "Yrken med krav på kortare utbildning eller introduktion",
+      "Service and support",
+      ifelse(
+        d_2010$SSYK_kl == "Yrken med krav på fördjupad högskolekompetens" |
+          d_2010$SSYK_kl == "Yrken med krav på högskolekompetens eller motsvarande" |
+          d_2010$SSYK_kl == "Chefsyrken" |
+          d_2010$SSYK_kl == "Militära yrken",
+        "Expertise and leadership",
+        NA
+      )
+    )
+  ),
+  levels = c(
+    "Manual and field trades",
+    "Service and support",
+    "Expertise and leadership"
+  )
+)
+table( d_2010$occupation, useNA = "always" )
+
+# disposable income
+summary( d_2010$dispink2010, useNA = "always" )
+d_2010$dispink2010 <- d_2010$dispink2010*( 1960/1733 ) # Consumer Price Index (CPI)-adjusted income
+d_2010$income <- factor( ifelse( d_2010$dispink2010 <= 2500, "<=2,500",
+                                 ifelse( d_2010$dispink2010 > 2500 & d_2010$dispink2010 <= 3500, "(2,500, 3,500]",
+                                         ifelse( d_2010$dispink2010 > 3500 & d_2010$dispink2010 <= 4500, "(3,500, 4,500]", ">4,500" ) ) ),
+                         levels = c( "<=2,500", "(2,500, 3,500]", "(3,500, 4,500]", ">4,500" ) )
+table( d_2010$income, useNA = "always" )
+
+# marital status
+table( d_2010$civil2010, useNA = "always" )
+d_2010$marital_status <- factor( ifelse( d_2010$civil2010 == "G" | d_2010$civil2010 == "RP", "Currently married",
+                                         ifelse( d_2010$civil2010 == "OG", "Never married", "Other" ) ), 
+                                 levels = c( "Never married", "Currently married", "Other" ) )
+table( d_2010$marital_status, useNA = "always" )
+
+# living alone
+table( d_2010$F10U53aG57a, useNA = "always" )
+d_2010$F10U53aG57a[ d_2010$F10U53aG57a == 9 ] <- NA
+d_2010$living_alone <- factor( ifelse( d_2010$F10U53aG57a == 1, "no", "yes" ), 
+                               levels = c( "yes", "no" ) )
+table( d_2010$living_alone, useNA = "always" )
+
+# personal support
+table( d_2010$F10U57G62, useNA = "always" )
+d_2010$F10U57G62[ d_2010$F10U57G62 == 9 ] <- NA
+d_2010$personal_support <- factor( ifelse( d_2010$F10U57G62 <= 2, "yes", "no" ), 
+                                   levels = c( "yes", "no" ) )
+table( d_2010$personal_support, useNA = "always" )
+
+
+##### demographic characteristics #####
+
+# among respondents (n = 30,767)
+# make characteristics table by sexual identity
+explanatory =  c( "sex", "age_cat", "country_of_birth", "education", "occupation", "income", "marital_status", "living_alone", "personal_support" )
+dependent = "sexual_identity_2010"
+
+d_2010_table_1 <- d_2010 %>% 
+  summary_factorlist( dependent,
+                      explanatory, 
+                      na_include = TRUE,
+                      na_include_dependent = TRUE, 
+                      total_col = TRUE,
+                      add_col_totals = TRUE,
+                      column = FALSE )
+
+# Fisher's test
+x1 <- table( d_2010$sex, d_2010$sexual_identity_2010 )
+x1
+format( round( fisher.test( x1[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x1[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x1[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
+
+x2 <- table( d_2010$age_cat, d_2010$sexual_identity_2010 )
+x2
+format( round( fisher.test( x2[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x2[, c( 1, 3 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x2[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
+
+x3 <- table( d_2010$country_of_birth, d_2010$sexual_identity_2010 )
+x3
+format( round( fisher.test( x3[, c( 1, 2 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x3[, c( 1, 3 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x3[, c( 1, 4 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x4 <- table( d_2010$education, d_2010$sexual_identity_2010 )
+x4
+format( round( fisher.test( x4[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x4[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x4[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
+
+x5 <- table( d_2010$income, d_2010$sexual_identity_2010 )
+x5
+format( round( fisher.test( x5[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x5[, c( 1, 3 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x5[, c( 1, 4 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x6 <- table( d_2010$marital_status, d_2010$sexual_identity_2010 )
+x6
+format( round( fisher.test( x6[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x6[, c( 1, 3 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x6[, c( 1, 4 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x7 <- table( d_2010$living_alone, d_2010$sexual_identity_2010 )
+x7
+format( round( fisher.test( x7[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x7[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x7[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
+
+x8 <- table( d_2010$personal_support, d_2010$sexual_identity_2010 )
+x8
+format( round( fisher.test( x8[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x8[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x8[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
+
+x9 <- table( d_2010$occupation, d_2010$sexual_identity_2010 )
+x9
+format( round( fisher.test( x9[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x9[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
+format( round( fisher.test( x9[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
+
+# make characteristics table by change of sexual identity
+explanatory =  c( "sex", "age_cat", "country_of_birth", "education", "occupation", "income", "marital_status", "living_alone", "personal_support", "sexual_identity_2010" )
+dependent = "sexual_identity_fluidity"
+
+d_2010_table_2 <- d_2010 %>% 
+  mutate( sexual_identity_fluidity = factor( sexual_identity_fluidity, levels = c( 0, 1 ), labels = c( "no change", "change" ) ) ) %>%
+  summary_factorlist( dependent,
+                      explanatory, 
+                      na_include = TRUE,
+                      na_include_dependent = TRUE, 
+                      total_col = TRUE,
+                      add_col_totals = TRUE,
+                      column = FALSE )
+
+# Fisher's test
+x1 <- table( d_2010$sex, d_2010$sexual_identity_fluidity )
+x1
+format( round( fisher.test( x1 )$p.value, 3 ), nsmall = 3 )
+
+x2 <- table( d_2010$age_cat, d_2010$sexual_identity_fluidity )
+x2
+format( round( fisher.test( x2, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x3 <- table( d_2010$country_of_birth, d_2010$sexual_identity_fluidity )
+x3
+format( round( fisher.test( x3, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x4 <- table( d_2010$education, d_2010$sexual_identity_fluidity )
+x4
+format( round( fisher.test( x4, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x5 <- table( d_2010$occupation, d_2010$sexual_identity_fluidity )
+x5
+format( round( fisher.test( x5, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x6 <- table( d_2010$income, d_2010$sexual_identity_fluidity )
+x6
+format( round( fisher.test( x6, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x7 <- table( d_2010$marital_status, d_2010$sexual_identity_fluidity )
+x7
+format( round( fisher.test( x7, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x8 <- table( d_2010$living_alone, d_2010$sexual_identity_fluidity )
+x8
+format( round( fisher.test( x8, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x9 <- table( d_2010$personal_support, d_2010$sexual_identity_fluidity )
+x9
+format( round( fisher.test( x9, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+x10 <- table( d_2010$sexual_identity_2010, d_2010$sexual_identity_fluidity )
+x10
+format( round( fisher.test( x10, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
+
+
+##### design weights #####
+
+summary( d_2010$F10dvikt )
+d_2010$design_weight <- d_2010$F10dvikt
+
+
+##### calibrated weights #####
+d_2010$calibrated_weight <- d_2010$F10kalvikt
+
+
+##### non-response #####
+
+# unit non-response
+d_2010$design_weight_unit_nonresponse <- d_2010$F10dbvikt # weights calculated assuming Missing Completely At Random (MCAR) within each stratum
+summary( d_2010$design_weight_unit_nonresponse )
+sum( d_2010$design_weight_unit_nonresponse ) # No. of source population = 1,602,868
+
+unitresponse_prob <- d_2010 %>% 
+  group_by( sampling_strata_region ) %>% 
+  summarise( unitresponse_prob = unique( design_weight ) / unique( design_weight_unit_nonresponse ),
+             no.of.population = sum( design_weight_unit_nonresponse ),
+             sample_size = unique( no.of.population )/unique( design_weight ) ) # calculate overall unit response rate, and no. of population and sample size within each stratum
+d_2010 <- d_2010 %>% 
+  left_join( unitresponse_prob, by = "sampling_strata_region" )
+
+# item non-response
+itemresponse_prob <- d_2010 %>% 
+  group_by( sampling_strata_region ) %>% 
+  summarise( itemresponse_prob = sum( !is.na( sexual_identity_2010 ) ) / n() ) # calculate item response rate
+
+d_2010 <- d_2010 %>% 
+  left_join( itemresponse_prob, by = "sampling_strata_region" ) %>% 
+  mutate( itemresponse_prob = ifelse( is.na( sexual_identity_2010 ), 0, itemresponse_prob ) )
+
+
+##### summary of stratified sampling #####
+
+sampling_frame_2010 <- as.data.frame( d_2010 %>% 
+                                   group_by( sampling_strata_region ) %>% 
+                                   reframe( no.of.population = unique( no.of.population ), 
+                                            sample_size = unique( no.of.population/design_weight ),
+                                            unitresponse = n(),
+                                            itemresponse = sum( itemresponse_prob != 0 ) ) )
+
+sampling_frame_2010$unitresponse_rate <- sampling_frame_2010$unitresponse/sampling_frame_2010$sample_size
+sampling_frame_2010$itemresponse_rate <- sampling_frame_2010$itemresponse/sampling_frame_2010$unitresponse
+sampling_frame_2010$overallresponse_rate <- sampling_frame_2010$itemresponse/sampling_frame_2010$sample_size
+
+sampling_frame_2010$unitresponse_label <- paste0( sampling_frame_2010$unitresponse, " (", 
+                                             sprintf( "%.1f", sampling_frame_2010$unitresponse_rate*100 ), "%)" )
+sampling_frame_2010$overallresponse_label <- paste0( sampling_frame_2010$itemresponse, " (", 
+                                                sprintf( "%.1f", sampling_frame_2010$overallresponse_rate*100 ), "%)" )
+
+round( sum( sampling_frame_2010$unitresponse )/( sum( sampling_frame_2010$sample_size ) ), 3 ) # overall unit response rate
+round( sum( sampling_frame_2010$itemresponse )/( sum( sampling_frame_2010$unitresponse ) ), 3 ) # overall item response rate
+round( sum( sampling_frame_2010$itemresponse )/( sum( sampling_frame_2010$sample_size ) ), 3 ) # overall response rate
+
+writexl::write_xlsx( sampling_frame_2010, "sampling_frame_2010.xlsx" )
+
+
+##### replicating non-respondent rows for sampling design #####
+
+# because d_2010 includes data only for respondents (unit response), we need to duplicate rows for non-respondents
+# so that the final dataset represents the sampling process
+rows_to_add <- d_2010 %>%
+  group_by( sampling_strata_region ) %>%
+  summarise( to_add = unique( sample_size ) - n(),
+             no.of.population = unique( no.of.population ),
+             sample_size = unique( sample_size ),
+             design_weight = unique( design_weight ) )
+
+rows_to_add$to_add <- round( rows_to_add$to_add )
+
+sum( rows_to_add$to_add ) # 24,573 non-respondents
+
+replicated_rows <- rows_to_add[ rep( row.names( rows_to_add ), rows_to_add$to_add ), c( 1, 3:5 ) ]
+
+d_2010_complete <- bind_rows( d_2010, replicated_rows ) # 55,340 individuals in the original sample
+```
+
+### 3. Self-Reported Health Outcomes
+```{r}
+##### Mental Health #####
+
+# recent psychological distress
+summary( d_2010_complete$F10GHQ12 )
+d_2010_complete$psychological_distress_continuous <- d_2010_complete$F10GHQ12
+d_2010_complete$psychological_distress_binary <- ifelse( d_2010_complete$F10GHQ12 < 4, "No", "Yes" ) # psychological distress defined as a score >= 4
+table( d_2010_complete$psychological_distress_binary, useNA = "always" )
+
+# self-reported doctor-diagnosed depression
+table( d_2010_complete$F10U16G19, useNA = "always" )
+d_2010_complete$F10U16G19[ d_2010_complete$F10U16G19 == 9 ] <- NA
+d_2010_complete$depression_self_report <- factor( ifelse( d_2010_complete$F10U16G19 == 1, "Never", "Ever" ),
+                                          levels = c( "Never", "Ever" ) )
+table( d_2010_complete$depression_self_report, useNA = "always" )
+
+# suicidal thoughts
+table( d_2010_complete$F10U51G55, useNA = "always" )
+d_2010_complete$F10U51G55[ d_2010_complete$F10U51G55 == 9 ] <- NA
+d_2010_complete$suicidal_thoughts <- factor( 
+  case_when(
+    d_2010_complete$F10U51G55 == 1 ~ "Never",
+    d_2010_complete$F10U51G55 == 2 ~ "More than one year ago",
+    d_2010_complete$F10U51G55 %in% c( 3, 4 ) ~ "During the last year"
+  ),
+  levels = c( "Never", "During the last year", "More than one year ago" ) )
+table( d_2010_complete$suicidal_thoughts, useNA = "always" )
+
+# suicidal attempts
+table( d_2010_complete$F10U52G56, useNA = "always" )
+d_2010_complete$F10U52G56[ d_2010_complete$F10U52G56 == 9 ] <- NA
+d_2010_complete$suicidal_attempts <- factor( 
+  case_when(
+    d_2010_complete$F10U52G56 == 1 ~ "Never",
+    d_2010_complete$F10U52G56 == 2 ~ "More than one year ago",
+    d_2010_complete$F10U52G56 %in% c( 3, 4 ) ~ "During the last year"
+  ),
+  levels = c( "Never", "During the last year", "More than one year ago" ) )
+table( d_2010_complete$suicidal_attempts, useNA = "always" )
+
+
+
+##### Physical Health #####
+
+
+```
+
+### 4. Registry-Based Health Outcomes
+```{r}
+##### Prescribed Drug Register #####
+d_pdr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/atc_2002_2014.sas7bdat") %>%
+  filter( ATC != "N05CD" )
+
+d_pdr_regitry_wide <- d_pdr_regitry %>%
+  group_by( lopnr ) %>%
+  mutate( row = row_number() ) %>%
+  pivot_wider( names_from = row, values_from = c( ATC, EDATUM ) )
+
+d_pdr_regitry_cleaned <- d_pdr_regitry_wide %>%
+  rowwise() %>%
+  mutate(
+    
+    # first-time use since 2005
+    first_use_anxiolytics = {
+      dates <- c_across( starts_with( "EDATUM_" ) )[ grepl( "N05B", c_across( starts_with( "ATC_" ) ) ) ]
+      if ( length( dates ) > 0 ) min( dates, na.rm = TRUE ) else NA
+      },
+    first_use_antidepressants = {
+      dates <- c_across( starts_with( "EDATUM_" ) )[ grepl( "N06A", c_across( starts_with( "ATC_" ) ) ) ]
+      if ( length( dates ) > 0 ) min( dates, na.rm = TRUE ) else NA
+      },
+    
+    # any use since 2005
+    any_use_anxiolytics = if_else(any(grepl("N05B", c_across(starts_with("ATC_")))), "Yes", "No"),
+    any_use_antidepressants = if_else(any(grepl("N06A", c_across(starts_with("ATC_")))), "Yes", "No")
+    ) %>%
+  ungroup()
+
+# count no. of prescriptions per year
+for ( year in 2005:2021 ) {
+  d_pdr_regitry_cleaned <- d_pdr_regitry_cleaned %>%
+    rowwise() %>%
+    mutate(
+      !!paste0( "anxiolytics_", year ) := count_prescriptions_per_year(
+        c_across( starts_with( "ATC_" ) ), 
+        c_across( starts_with( "EDATUM_" ) ), 
+        year, 
+        "N05B"
+        ),
+      !!paste0( "antidepressants_", year ) := count_prescriptions_per_year(
+        c_across( starts_with( "ATC_" ) ), 
+        c_across( starts_with( "EDATUM_" ) ), 
+        year, 
+        "N06A"
+        ) ) %>%
+    ungroup()
+}
+
+d_pdr_regitry_final <- d_pdr_regitry_cleaned %>%
+  select( lopnr, matches( "antidepressants|anxiolytics" ) )
+
+d_2010_complete_merged <- d_2010_complete %>%
+  left_join( d_pdr_regitry_final, by = "lopnr" )
+
+##### Mental Health #####
+
+# use of antidepressants
+
+
+
+# use of anxiolytics
+
+```
+
+### 4. Prevalence of Mental Health Outcomes
+#### 4.1. Complete-case analysis
+##### 4.1.1. Define survey design
+```{r}
+d_2010_complete_cc <- d_2010_complete
+
+survey_design_cc <- svydesign( ids = ~ 1, 
+                               strata = ~ sampling_strata_region,
+                               weights = ~ design_weight,
+                               fpc = ~ no.of.population,
+                               data = d_2010_complete_cc )
+
+# the following analyses assume MCAR
+```
+
+##### 4.1.2. Psychological stress
+```{r}
+prop_cc_psychological_stress <- svyby( formula = ~ I( psychological_distress == "Yes" ),
+                                       by = ~ sexual_identity_2010,
+                                       design = subset( survey_design_cc, !is.na( sexual_identity_2010 ) & 
+                                                          !is.na( psychological_distress ) ),
+                                       FUN = svyciprop,
+                                       vartype = "ci",
+                                       method = "beta" )
+
+colnames( prop_cc_psychological_stress ) <- c( "sexual_identity_2010", "psychological_stress_point_estimate_2010", "psychological_stress_lower_ci_2010", "psychological_stress_upper_ci_2010" )
+
+prop_cc_psychological_stress <- left_join( prop_cc_psychological_stress,
+                                       d_2010_complete_cc[ !is.na( d_2010_complete_cc$sexual_identity_2010 ) &
+                                             !is.na( d_2010_complete_cc$psychological_distress ), ] %>% 
+                                         group_by( sexual_identity_2010 = sexual_identity_2010 ) %>% 
+                                         summarise( psychological_stress_sample_size_2010 = n() ),
+                                       by = "sexual_identity_2010" ) %>%
+  mutate( psychological_stress_sample_size_2010 = prettyNum( psychological_stress_sample_size_2010, big.mark = ",", preserve.width = "none" ) )
+```
+
+##### 4.1.3. Suicide thoughts
+```{r}
+prop_cc_suicide_thoughts <- svyby( formula = ~ I( suicide_thoughts == "Ever" ),
+                                   by = ~ sexual_identity_2010,
+                                   design = subset( survey_design_cc, !is.na( sexual_identity_2010 ) & !is.na( suicide_thoughts ) ),
+                                   FUN = svyciprop,
+                                   vartype = "ci",
+                                   method = "beta" )
+
+colnames( prop_cc_suicide_thoughts ) <- c( "sexual_identity_2010", "suicide_thoughts_point_estimate_2010", "suicide_thoughts_lower_ci_2010", "suicide_thoughts_upper_ci_2010" )
+
+prop_cc_suicide_thoughts <- left_join( prop_cc_suicide_thoughts,
+                                       d_2010_complete_cc[ !is.na( d_2010_complete_cc$sexual_identity_2010 ) &
+                                             !is.na( d_2010_complete_cc$suicide_thoughts ), ] %>% 
+                                         group_by( sexual_identity_2010 = sexual_identity_2010 ) %>% 
+                                         summarise( suicide_thoughts_sample_size_2010 = n() ),
+                                       by = "sexual_identity_2010" ) %>%
+  mutate( suicide_thoughts_sample_size_2010 = prettyNum( suicide_thoughts_sample_size_2010, big.mark = ",", preserve.width = "none" ) )
+```
+
+##### 4.1.4. Suicide attempts
+```{r}
+prop_cc_suicide_attempts <- svyby( formula = ~ I( suicide_attempts == "Ever" ),
+                                   by = ~ sexual_identity_2010,
+                                   design = subset( survey_design_cc, !is.na( sexual_identity_2010 ) & !is.na( suicide_attempts ) ),
+                                   FUN = svyciprop,
+                                   vartype = "ci",
+                                   method = "beta" )
+
+colnames( prop_cc_suicide_attempts ) <- c( "sexual_identity_2010", "suicide_attempts_point_estimate_2010", "suicide_attempts_lower_ci_2010", "suicide_attempts_upper_ci_2010" )
+
+prop_cc_suicide_attempts <- left_join( prop_cc_suicide_attempts,
+                                       d_2010_complete_cc[ !is.na( d_2010_complete_cc$sexual_identity_2010 ) &
+                                                             !is.na( d_2010_complete_cc$suicide_attempts ), ] %>% 
+                                         group_by( sexual_identity_2010 = sexual_identity_2010 ) %>% 
+                                         summarise( suicide_attempts_sample_size_2010 = n() ),
+                                       by = "sexual_identity_2010" ) %>%
+  mutate( suicide_attempts_sample_size_2010 = prettyNum( suicide_attempts_sample_size_2010, big.mark = ",", preserve.width = "none" ) )
+```
+
+##### 4.1.5. Combine datasets
+```{r}
+prop_cc_mental_health <- prop_cc_psychological_stress %>%
+  left_join( prop_cc_suicide_thoughts, by = "sexual_identity_2010" ) %>%
+  left_join( prop_cc_suicide_attempts, by = "sexual_identity_2010" )
+
+writexl::write_xlsx( prop_cc_mental_health, "prop_cc_mental_health_2010.xlsx" )
+```
