@@ -523,11 +523,3 @@ extract_fluidity_model_imp <- function( model_results, exposures, model_type ) {
   return( combined_df )
 }
 
-
-# Function to Count Prescriptions during A Year (Prescribed Drug Register)
-count_prescriptions_per_year <- function( atc_columns, edatum_columns, year, code_pattern ) {
-  valid_dates <- edatum_columns[ grepl( code_pattern, atc_columns ) ]
-  count <- sum( year( valid_dates ) == year, na.rm = TRUE )
-  return( count )
-}
-

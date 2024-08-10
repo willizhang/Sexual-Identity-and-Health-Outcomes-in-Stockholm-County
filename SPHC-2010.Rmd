@@ -488,59 +488,88 @@ table( d_2010_complete$suicidal_attempts, useNA = "always" )
 ### 4. Registry-Based Health Outcomes
 ```{r}
 ##### Prescribed Drug Register #####
-d_pdr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/atc_2002_2014.sas7bdat") %>%
-  filter( ATC != "N05CD" )
+pdr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/atc_2002_2014.sas7bdat") # include participants who HAD a prescription history from 2005-06-30 to 2021-12-31
 
-d_pdr_regitry_wide <- d_pdr_regitry %>%
-  group_by( lopnr ) %>%
-  mutate( row = row_number() ) %>%
-  pivot_wider( names_from = row, values_from = c( ATC, EDATUM ) )
-
-d_pdr_regitry_cleaned <- d_pdr_regitry_wide %>%
-  rowwise() %>%
+d_pdr_regitry <- pdr_regitry %>%
+  filter( ATC != "N05CD" ) %>%
   mutate(
-    
-    # first-time use since 2005
-    first_use_anxiolytics = {
-      dates <- c_across( starts_with( "EDATUM_" ) )[ grepl( "N05B", c_across( starts_with( "ATC_" ) ) ) ]
-      if ( length( dates ) > 0 ) min( dates, na.rm = TRUE ) else NA
-      },
-    first_use_antidepressants = {
-      dates <- c_across( starts_with( "EDATUM_" ) )[ grepl( "N06A", c_across( starts_with( "ATC_" ) ) ) ]
-      if ( length( dates ) > 0 ) min( dates, na.rm = TRUE ) else NA
-      },
-    
-    # any use since 2005
-    any_use_anxiolytics = if_else(any(grepl("N05B", c_across(starts_with("ATC_")))), "Yes", "No"),
-    any_use_antidepressants = if_else(any(grepl("N06A", c_across(starts_with("ATC_")))), "Yes", "No")
-    ) %>%
-  ungroup()
+    presence_N06A = if_else( grepl( "N06A", ATC ), "Yes", "No" ),
+    presence_N05B = if_else( grepl( "N05B", ATC ), "Yes", "No" ),
+    year = year( EDATUM )
+    )
 
-# count no. of prescriptions per year
-for ( year in 2005:2021 ) {
-  d_pdr_regitry_cleaned <- d_pdr_regitry_cleaned %>%
-    rowwise() %>%
-    mutate(
-      !!paste0( "anxiolytics_", year ) := count_prescriptions_per_year(
-        c_across( starts_with( "ATC_" ) ), 
-        c_across( starts_with( "EDATUM_" ) ), 
-        year, 
-        "N05B"
-        ),
-      !!paste0( "antidepressants_", year ) := count_prescriptions_per_year(
-        c_across( starts_with( "ATC_" ) ), 
-        c_across( starts_with( "EDATUM_" ) ), 
-        year, 
-        "N06A"
-        ) ) %>%
-    ungroup()
-}
+n_miss( d_pdr_regitry ) # 0
+unique( d_pdr_regitry$ATC )
+summary( d_pdr_regitry$EDATUM ) # from 2005-06-30 to 2021-12-31
+summary( d_pdr_regitry$year ) # from 2005 to 2021
 
-d_pdr_regitry_final <- d_pdr_regitry_cleaned %>%
-  select( lopnr, matches( "antidepressants|anxiolytics" ) )
+count_ATC <- d_pdr_regitry %>%
+  group_by( lopnr, year ) %>%
+  summarise(
+    presence_N06A_Yes = sum( presence_N06A == "Yes" ),
+    presence_N05B_Yes = sum( presence_N05B == "Yes" ),
+    .groups = "drop"
+    ) # calculate no. of prescriptions per year
 
-d_2010_complete_merged <- d_2010_complete %>%
-  left_join( d_pdr_regitry_final, by = "lopnr" )
+sum( count_ATC$presence_N06A_Yes )
+sum( count_ATC$presence_N05B_Yes )
+table( d_pdr_regitry$presence_N06A )
+table( d_pdr_regitry$presence_N05B ) # all numbers match
+
+count_ATC_wide <- count_ATC %>%
+  # transform to wide format
+  pivot_wider( 
+    names_from = year, 
+    values_from = c( presence_N06A_Yes, presence_N05B_Yes ), 
+    names_sep = "_",
+    values_fill = 0 # NOTE: here we assume that among participants who HAD a prescription history during 2005-2021, those who did not have a prescription record in a specific year did not receive a prescription, i.e., assume complete follow-up during 2005-2021 through register
+    )
+
+ever_ATC <- d_pdr_regitry %>%
+  group_by( lopnr ) %>%
+  summarise(
+    total_N06A = sum( presence_N06A == "Yes" ),
+    total_N05B = sum( presence_N05B == "Yes" ),
+    ever_use_N06A = ifelse( any( presence_N06A == "Yes" ), "Yes", "No" ),
+    ever_use_N05B = ifelse( any( presence_N05B == "Yes" ), "Yes", "No" ),
+    .groups = "drop"
+    )  # calculate total no. of prescriptions and define if ever use
+
+ATC_data <- full_join( count_ATC_wide, ever_ATC, by = "lopnr" )
+
+ordered_colnames <- c( "lopnr", "ever_use_N06A", "ever_use_N05B", "total_N06A", "total_N05B",
+                       colnames( ATC_data )[ -c( 1, 36:39 ) ][ order( as.numeric( sub( ".*_(\\d{4})$", "\\1", colnames( ATC_data )[ -c( 1, 36:39 ) ] ) ) ) ] )
+
+ATC_data <- ATC_data %>%
+  select( all_of( ordered_colnames ) )
+
+n_miss( ATC_data ) # 0
+sum( ATC_data$total_N06A )
+sum( ATC_data$total_N05B )
+table( d_pdr_regitry$presence_N06A )
+table( d_pdr_regitry$presence_N05B ) # all numbers match
+
+d_2010_complete_merged <- left_join( d_2010_complete, ATC_data, by = "lopnr" )
+inner_join( d_2010_complete, ATC_data, by = "lopnr" ) %>% 
+  summarize( count = n() ) # 12,645 matched
+
+d_2010_complete_merged_cleaned <- d_2010_complete_merged %>%
+  mutate( across( contains( c( "N06A", "N05B" ) ), 
+                  ~ ifelse( is.na( lopnr ), ., 
+                            ifelse( is.na(.), 0, .) ) )
+          ) # NOTE: here we assume that among participants who did NOT have a prescription history during 2005-2021, they did not receive a prescription, i.e., assume complete follow-up during 2005-2021 through register
+
+table( d_2010_complete_merged_cleaned$ever_use_N05B, useNA = "always" )
+table( d_2010_complete_merged_cleaned$ever_use_N06A, useNA = "always" )
+
+d_2010_complete_merged_cleaned <- d_2010_complete_merged_cleaned %>%
+  mutate( ever_use_N05B = ifelse( ever_use_N05B == 0, "No", ever_use_N05B ),
+          ever_use_N06A = ifelse( ever_use_N06A == 0, "No", ever_use_N06A ) 
+          )
+
+# in summary, the final merged dataset assumes that all participants have complete follow-up through register from 2005 to 2021; therefore, those who do not have any prescription record are assumed not having a prescription
+
+
 
 ##### Mental Health #####
 
