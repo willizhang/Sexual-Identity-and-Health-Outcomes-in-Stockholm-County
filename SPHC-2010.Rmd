@@ -14,6 +14,7 @@ library(tidyr)
 library(tidyverse)
 library(dplyr)
 library(finalfit)
+library(stringr)
 library(ggplot2)
 library(naniar)
 library(jomo)
@@ -23,7 +24,7 @@ library(survey)
 library(svyVGAM)
 library(vcd)
 library(rcompanion)
-source("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Postdoc Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/Helper_functions.R") # helper function
+source("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/Helper_functions.R") # helper function
 ```
 
 ### 2. Import and Prepare Data
@@ -154,11 +155,9 @@ summary( d_2010$generation )
 
 # country of birth
 table( d_2010$fodelseland, useNA = "always" )
-d_2010$country_of_birth <- factor( ifelse( d_2010$fodelseland == "Afrika", "Africa",
-                                           ifelse( d_2010$fodelseland == "Asien", "Asia",
-                                                   ifelse( d_2010$fodelseland == "Europa", "Europe",
-                                                           ifelse( d_2010$fodelseland == "Sverige", "Sweden", "Americas" ) ) ) ),
-                                   levels = c( "Africa", "Americas", "Asia", "Europe", "Sweden" ) )
+d_2010$country_of_birth <- factor( ifelse( d_2010$fodelseland == "Sverige", "Sweden",
+                                           ifelse( d_2010$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
+                                   levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2010$country_of_birth, useNA = "always" )
 
 # education
@@ -218,15 +217,15 @@ table( d_2010$marital_status, useNA = "always" )
 # living alone
 table( d_2010$F10U53aG57a, useNA = "always" )
 d_2010$F10U53aG57a[ d_2010$F10U53aG57a == 9 ] <- NA
-d_2010$living_alone <- factor( ifelse( d_2010$F10U53aG57a == 1, "no", "yes" ), 
-                               levels = c( "yes", "no" ) )
+d_2010$living_alone <- factor( ifelse( d_2010$F10U53aG57a == 1, "living_alone_no", "living_alone_yes" ), 
+                               levels = c( "living_alone_yes", "living_alone_no" ) )
 table( d_2010$living_alone, useNA = "always" )
 
 # personal support
 table( d_2010$F10U57G62, useNA = "always" )
 d_2010$F10U57G62[ d_2010$F10U57G62 == 9 ] <- NA
-d_2010$personal_support <- factor( ifelse( d_2010$F10U57G62 <= 2, "yes", "no" ), 
-                                   levels = c( "yes", "no" ) )
+d_2010$personal_support <- factor( ifelse( d_2010$F10U57G62 <= 2, "personal_support_yes", "personal_support_no" ), 
+                                   levels = c( "personal_support_yes", "personal_support_no" ) )
 table( d_2010$personal_support, useNA = "always" )
 
 
@@ -437,7 +436,8 @@ replicated_rows <- rows_to_add[ rep( row.names( rows_to_add ), rows_to_add$to_ad
 d_2010_complete <- bind_rows( d_2010, replicated_rows ) # 55,340 individuals in the original sample
 ```
 
-### 3. Self-Reported Health Outcomes
+### 4. Self-Reported Health Outcomes
+#### 4.1. Prepare dataset
 ```{r}
 ##### Mental Health #####
 
@@ -485,10 +485,12 @@ table( d_2010_complete$suicidal_attempts, useNA = "always" )
 
 ```
 
-### 4. Registry-Based Health Outcomes
+### 5. Registry-Based Health Outcomes
+#### 5.1. Prepare dataset
+##### 5.1.1. Prescribed Drug Register
 ```{r}
-##### Prescribed Drug Register #####
-pdr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/atc_2002_2014.sas7bdat") # include participants who HAD a prescription history from 2005-06-30 to 2021-12-31
+# prepare dataset
+pdr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/atc_2002_2014.sas7bdat") # include participants who HAD at least one prescription record of N05B or N06A from 2005-06-30 to 2021-12-31
 
 d_pdr_regitry <- pdr_regitry %>%
   filter( ATC != "N05CD" ) %>%
@@ -522,7 +524,7 @@ count_ATC_wide <- count_ATC %>%
     names_from = year, 
     values_from = c( presence_N06A_Yes, presence_N05B_Yes ), 
     names_sep = "_",
-    values_fill = 0 # NOTE: here we assume that among participants who HAD a prescription history during 2005-2021, those who did not have a prescription record in a specific year did not receive a prescription, i.e., assume complete follow-up during 2005-2021 through register
+    values_fill = 0 # NOTE: assume that among participants who HAD at least one prescription record during 2005-2021, those who did not have any prescription during a specific year did not receive a prescription during that year, i.e., assume complete follow-up during 2005-2021 through register
     )
 
 ever_ATC <- d_pdr_regitry %>%
@@ -533,15 +535,9 @@ ever_ATC <- d_pdr_regitry %>%
     ever_use_N06A = ifelse( any( presence_N06A == "Yes" ), "Yes", "No" ),
     ever_use_N05B = ifelse( any( presence_N05B == "Yes" ), "Yes", "No" ),
     .groups = "drop"
-    )  # calculate total no. of prescriptions and define if ever use
+    )  # calculate total no. of prescriptions and determine if ever use; the same assumption as above
 
 ATC_data <- full_join( count_ATC_wide, ever_ATC, by = "lopnr" )
-
-ordered_colnames <- c( "lopnr", "ever_use_N06A", "ever_use_N05B", "total_N06A", "total_N05B",
-                       colnames( ATC_data )[ -c( 1, 36:39 ) ][ order( as.numeric( sub( ".*_(\\d{4})$", "\\1", colnames( ATC_data )[ -c( 1, 36:39 ) ] ) ) ) ] )
-
-ATC_data <- ATC_data %>%
-  select( all_of( ordered_colnames ) )
 
 n_miss( ATC_data ) # 0
 sum( ATC_data$total_N06A )
@@ -556,28 +552,1030 @@ inner_join( d_2010_complete, ATC_data, by = "lopnr" ) %>%
 d_2010_complete_merged_cleaned <- d_2010_complete_merged %>%
   mutate( across( contains( c( "N06A", "N05B" ) ), 
                   ~ ifelse( is.na( lopnr ), ., 
-                            ifelse( is.na(.), 0, .) ) )
-          ) # NOTE: here we assume that among participants who did NOT have a prescription history during 2005-2021, they did not receive a prescription, i.e., assume complete follow-up during 2005-2021 through register
-
-table( d_2010_complete_merged_cleaned$ever_use_N05B, useNA = "always" )
-table( d_2010_complete_merged_cleaned$ever_use_N06A, useNA = "always" )
+                            ifelse( is.na(.), 0, . ) ) )
+          ) # NOTE: assume that among participants who did NOT have any prescription record during 2005-2021, they did not receive a prescription during the period, i.e., assume complete follow-up during 2005-2021 through register
 
 d_2010_complete_merged_cleaned <- d_2010_complete_merged_cleaned %>%
-  mutate( ever_use_N05B = ifelse( ever_use_N05B == 0, "No", ever_use_N05B ),
-          ever_use_N06A = ifelse( ever_use_N06A == 0, "No", ever_use_N06A ) 
-          )
+  mutate( 
+    
+    # replace 0 with "No"
+    ever_use_N05B = ifelse( ever_use_N05B == 0, "No", ever_use_N05B ),
+    ever_use_N06A = ifelse( ever_use_N06A == 0, "No", ever_use_N06A ),
+    
+    # create new columns
+    across(
+      starts_with( "presence_N06A_Yes_" ),
+      ~ ifelse(. > 0, "Yes", "No" ),
+      .names = "ever_use_N06A_{str_sub(.col, -4)}"
+      ),
+    
+    across(
+      starts_with( "presence_N05B_Yes_" ),
+      ~ ifelse(. > 0, "Yes", "No" ),
+      .names = "ever_use_N05B_{str_sub(.col, -4)}"
+      ),
+    
+    # convert to factor
+    across(
+      starts_with( "ever_use" ), 
+      ~ factor(., levels = c( "Yes", "No" ) )
+      )
+    )
 
-# in summary, the final merged dataset assumes that all participants have complete follow-up through register from 2005 to 2021; therefore, those who do not have any prescription record are assumed not having a prescription
+summary( d_2010_complete_merged_cleaned[ , ( 60:131 ) ] )
+
+# in summary, the final merged dataset assumes that all participants have complete follow-up through register from 2005 to 2021; therefore, those who do not have any prescription record are assumed not to have a prescription
+```
+
+#### 5.2. Complete-case analysis
+##### 5.2.1. Define survey design
+```{r}
+d_2010_complete_cc <- d_2010_complete_merged_cleaned
+
+# create survey design
+survey_design_cc <- svydesign( ids = ~ 1, 
+                               strata = ~ sampling_strata_region,
+                               weights = ~ design_weight,
+                               fpc = ~ no.of.population,
+                               data = d_2010_complete_cc )
+
+# the following analyses assume MCAR
+```
+
+##### 5.2.2. Mental health outcomes
+###### 5.2.2.1. Use of antidepressants and anxiolytics
+```{r}
+##### among all participants #####
+
+# calculate year-specific prevalence by sexual identity
+
+# antidepressants
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N06A_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010, 
+                         design = survey_design_cc, 
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( paste0( "ever_use_N06A_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N06A_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N06A_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
 
 
+# anxiolytics
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N05B_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010,
+                         design = survey_design_cc,
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( paste0( "ever_use_N05B_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N05B_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N05B_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
 
-##### Mental Health #####
+results_N05B <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
 
-# use of antidepressants
+
+# calculate overall year-specific prevalence
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyciprop( formula = as.formula( paste0( "~ I(ever_use_N06A_", year, " == 'Yes')" ) ), # antidepressants
+                             design = subset( survey_design_cc, !is.na( get( paste0( "ever_use_N06A_", year ) ) ) ),
+                             vartype = "ci",
+                             method = "beta" )
+  
+  svyby_result <- data.frame( svyby_result[ 1 ], confint( svyby_result )[ 1 ], confint( svyby_result )[ 2 ] )
+  
+  colnames( svyby_result ) <- c( paste0( "ever_use_N06A_", year, "_point_estimate" ), 
+                                 paste0( "ever_use_N06A_", year, "_lower_ci" ),
+                                 paste0( "ever_use_N06A_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+results_N06A_overall[ 1, 1 ] <- "Stockholm County"
 
 
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyciprop( formula = as.formula( paste0( "~ I(ever_use_N05B_", year, " == 'Yes')" ) ), # anxiolytics
+                             design = subset( survey_design_cc, !is.na( get( paste0( "ever_use_N05B_", year ) ) ) ),
+                             vartype = "ci",
+                             method = "beta" )
+  
+  svyby_result <- data.frame( svyby_result[ 1 ], confint( svyby_result )[ 1 ], confint( svyby_result )[ 2 ] )
+  
+  colnames( svyby_result ) <- c( paste0( "ever_use_N05B_", year, "_point_estimate" ), 
+                                 paste0( "ever_use_N05B_", year, "_lower_ci" ),
+                                 paste0( "ever_use_N05B_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
 
-# use of anxiolytics
+results_N05B_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+results_N05B_overall[ 1, 1 ] <- "Stockholm County"
+
+
+# combine datasets
+results_N06A_all <- bind_rows( results_N06A, results_N06A_overall )
+results_N05B_all <- bind_rows( results_N05B, results_N05B_overall )
+results_combined <- full_join( results_N06A_all, results_N05B_all, by = "sexual_identity_2010" )
+str( results_combined )
+
+results_combined_long <- results_combined %>%
+  pivot_longer(
+    cols = starts_with( "ever_use_" ),
+    names_to = c( "drug_class", "year", ".value" ), 
+    names_pattern = "ever_use_(.*)_(\\d{4})_(.*)$" )
+
+str( results_combined_long )
+results_combined_long$sexual_identity_2010 <- factor( results_combined_long$sexual_identity_2010,
+                                                      levels = c( "Heterosexual", "Homosexual", "Bisexual", "Uncertain", "Stockholm County" ) )
+results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
+results_combined_long$year <- as.numeric( results_combined_long$year )
+
+
+# plot
+color_values <- c( "Heterosexual" = "#2166AC", 
+                   "Homosexual" = "#00BFC4", 
+                   "Bisexual" = "orange", 
+                   "Stockholm County" = "red" )
+
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual", "Stockholm County" ) ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) )
+    ) )
+```
+
+```{r}
+##### by sex #####
+
+# year-specific prevalence
+
+# antidepressants
+results_list <- list()
+
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N06A_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010 + sex, 
+                         design = survey_design_cc, 
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( "sex",
+                                     paste0( "ever_use_N06A_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N06A_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N06A_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "sex" ) )
+}, 
+results_list )
+
+
+# anxiolytics
+results_list <- list()
+
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N05B_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010 + sex,
+                         design = survey_design_cc,
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( "sex",
+                                     paste0( "ever_use_N05B_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N05B_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N05B_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N05B <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "sex" ) )
+}, 
+results_list )
+
+
+# combine and prepare datasets
+results_combined <- full_join( results_N06A, results_N05B, by = c( "sexual_identity_2010", "sex" ) )
+str( results_combined )
+
+results_combined_long <- results_combined %>%
+  pivot_longer(
+    cols = starts_with( "ever_use_" ),
+    names_to = c( "drug_class", "year", ".value" ), 
+    names_pattern = "ever_use_(.*)_(\\d{4})_(.*)$" )
+
+str( results_combined_long )
+results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
+results_combined_long$year <- as.numeric( results_combined_long$year )
+
+
+color_values <- c( "Heterosexual" = "red", 
+                   "Homosexual" = "#00BFC4", 
+                   "Bisexual" = "orange" )
+
+# among females
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            sex == "Female" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) )
+    ) )
+
+# among males
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            sex == "Male" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) )
+    ) )
+```
+
+```{r}
+##### by age groups #####
+
+# year-specific prevalence
+
+# antidepressants
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N06A_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010 + age_cat, 
+                         design = survey_design_cc, 
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( "age_cat",
+                                     paste0( "ever_use_N06A_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N06A_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N06A_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "age_cat" ) )
+}, 
+results_list )
+
+
+# anxiolytics
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N05B_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010 + age_cat,
+                         design = survey_design_cc,
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( "age_cat",
+                                     paste0( "ever_use_N05B_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N05B_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N05B_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N05B <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "age_cat" ) )
+}, 
+results_list )
+
+
+# combine and prepare datasets
+results_combined <- full_join( results_N06A, results_N05B, by = c( "sexual_identity_2010", "age_cat" ) )
+str( results_combined )
+
+results_combined_long <- results_combined %>%
+  pivot_longer(
+    cols = starts_with( "ever_use_" ),
+    names_to = c( "drug_class", "year", ".value" ), 
+    names_pattern = "ever_use_(.*)_(\\d{4})_(.*)$" )
+
+str( results_combined_long )
+results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
+results_combined_long$year <- as.numeric( results_combined_long$year )
+
+
+# among 18-29 years
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            age_cat == "18-29" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) )
+  ) )
+
+# among 30-44 years
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            age_cat == "30-44" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) )
+  ) )
+
+# among 45-59 years
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            age_cat == "45-59" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) )
+  ) )
+
+# among >=60 years
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            age_cat == ">=60" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) )
+  ) )
+```
+
+```{r}
+##### by country of birth #####
+
+# year-specific prevalence
+
+# antidepressants
+results_list <- list()
+
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N06A_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010 + country_of_birth, 
+                         design = survey_design_cc, 
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( "country_of_birth",
+                                     paste0( "ever_use_N06A_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N06A_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N06A_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "country_of_birth" ) )
+}, 
+results_list )
+
+
+# anxiolytics
+results_list <- list()
+
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~ I(ever_use_N05B_", year, " == 'Yes')" ) ), 
+                         by = ~ sexual_identity_2010 + country_of_birth,
+                         design = survey_design_cc,
+                         FUN = svyciprop,
+                         vartype = "ci",
+                         method = "beta" )
+  
+  colnames( svyby_result )[-1] <- c( "country_of_birth",
+                                     paste0( "ever_use_N05B_", year, "_point_estimate" ), 
+                                     paste0( "ever_use_N05B_", year, "_lower_ci" ),
+                                     paste0( "ever_use_N05B_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N05B <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "country_of_birth" ) )
+}, 
+results_list )
+
+
+# combine and prepare datasets
+results_combined <- full_join( results_N06A, results_N05B, by = c( "sexual_identity_2010", "country_of_birth" ) )
+str( results_combined )
+
+results_combined_long <- results_combined %>%
+  pivot_longer(
+    cols = starts_with( "ever_use_" ),
+    names_to = c( "drug_class", "year", ".value" ), 
+    names_pattern = "ever_use_(.*)_(\\d{4})_(.*)$" )
+
+str( results_combined_long )
+results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
+results_combined_long$year <- as.numeric( results_combined_long$year )
+
+
+color_values <- c( "Heterosexual" = "red", 
+                   "Homosexual" = "#00BFC4", 
+                   "Bisexual" = "orange" )
+
+# born in Sweden
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            country_of_birth == "Sweden" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) )
+  ) )
+
+# born in Europe
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            country_of_birth == "Europe" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) )
+  ) )
+
+# born outside Europe
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
+            country_of_birth == "Outside Europe" ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Prevalence of Dispensed Prescription"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) )
+  ) )
+```
+
+```{r}
+##### among all participants #####
+# average no. of prescriptions
+
+# antidepressants
+results_list <- list()
+
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~presence_N06A_Yes_", year ) ), 
+                         by = ~ sexual_identity_2010, 
+                         design = survey_design_cc, 
+                         FUN = svymean,
+                         vartype = "ci" )
+  
+  colnames( svyby_result )[-1] <- c( paste0( "presence_N06A_Yes_", year, "_point_estimate" ), 
+                                     paste0( "presence_N06A_Yes_", year, "_lower_ci" ),
+                                     paste0( "presence_N06A_Yes_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+  }
+
+results_N06A <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+  }, 
+  results_list )
+
+
+# anxiolytics
+results_list <- list()
+
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~presence_N05B_Yes_", year ) ), 
+                         by = ~ sexual_identity_2010, 
+                         design = survey_design_cc, 
+                         FUN = svymean,
+                         vartype = "ci" )
+  
+  colnames( svyby_result )[-1] <- c( paste0( "presence_N05B_Yes_", year, "_point_estimate" ), 
+                                     paste0( "presence_N05B_Yes_", year, "_lower_ci" ),
+                                     paste0( "presence_N05B_Yes_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N05B <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
+
+
+# combine and prepare datasets
+results_combined <- full_join( results_N06A, results_N05B, by = "sexual_identity_2010" )
+str( results_combined )
+
+results_combined_long <- results_combined %>%
+  pivot_longer(
+    cols = starts_with( "presence_" ),
+    names_to = c( "drug_class", "year", ".value" ), 
+    names_pattern = "presence_(.*)_Yes_(\\d{4})_(.*)$" )
+
+str( results_combined_long )
+results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
+results_combined_long$year <- as.numeric( results_combined_long$year )
+
+# plot
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  geom_vline( xintercept = 2009,
+              linetype = "dashed",
+              color = "grey",
+              linewidth = 0.6 ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = c( "red", "#87CEEB", "orange" ),
+                      breaks = c( "Heterosexual", "Homosexual", "Bisexual" ) ) +
+  
+  scale_fill_manual( values = c( "red", "#87CEEB", "orange" ) ) +
+  
+  labs(
+    x = "Year",
+    y = "Average Number of Prescriptions"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 2, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 0.8 ), breaks = c( 0, 0.2, 0.4, 0.6, 0.8 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 1.6 ), breaks = c( 0, 0.4, 0.8, 1.2, 1.6 ) )
+    ) )
+```
+
+```{r}
+##### among participants who have any prescription during 2005-2021 #####
+# average no. of prescriptions
+
+# antidepressants
 
 ```
 
