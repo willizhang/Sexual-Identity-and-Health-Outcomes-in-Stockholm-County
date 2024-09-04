@@ -1,5 +1,5 @@
 ---
-title: "Sexual identity and health outcomes in Stockholm County, SPHC-2010"
+title: "Sexual identity and health outcomes in Stockholm County, SPHC 2010"
 author: Guoqiang Zhang
 email: guoqiang.zhang@ki.se
 output: html_notebook
@@ -436,22 +436,24 @@ replicated_rows <- rows_to_add[ rep( row.names( rows_to_add ), rows_to_add$to_ad
 d_2010_complete <- bind_rows( d_2010, replicated_rows ) # 55,340 individuals in the original sample
 ```
 
-### 4. Self-Reported Health Outcomes
-#### 4.1. Prepare dataset
+### 3. Self-Reported Health Outcomes
+#### 3.1. Complete-case analysis
+##### 3.1.1. Prepare dataset
 ```{r}
-##### Mental Health #####
+##### mental health outcomes #####
 
 # recent psychological distress
 summary( d_2010_complete$F10GHQ12 )
 d_2010_complete$psychological_distress_continuous <- d_2010_complete$F10GHQ12
-d_2010_complete$psychological_distress_binary <- ifelse( d_2010_complete$F10GHQ12 < 4, "No", "Yes" ) # psychological distress defined as a score >= 4
+d_2010_complete$psychological_distress_binary <- factor( ifelse( d_2010_complete$F10GHQ12 < 3, "No", "Yes" ),
+                                                         levels = c( "Yes", "No" ) ) # psychological distress defined as a score >= 3
 table( d_2010_complete$psychological_distress_binary, useNA = "always" )
 
 # self-reported doctor-diagnosed depression
 table( d_2010_complete$F10U16G19, useNA = "always" )
 d_2010_complete$F10U16G19[ d_2010_complete$F10U16G19 == 9 ] <- NA
 d_2010_complete$depression_self_report <- factor( ifelse( d_2010_complete$F10U16G19 == 1, "Never", "Ever" ),
-                                          levels = c( "Never", "Ever" ) )
+                                                  levels = c( "Never", "Ever" ) )
 table( d_2010_complete$depression_self_report, useNA = "always" )
 
 # suicidal thoughts
@@ -460,10 +462,9 @@ d_2010_complete$F10U51G55[ d_2010_complete$F10U51G55 == 9 ] <- NA
 d_2010_complete$suicidal_thoughts <- factor( 
   case_when(
     d_2010_complete$F10U51G55 == 1 ~ "Never",
-    d_2010_complete$F10U51G55 == 2 ~ "More than one year ago",
-    d_2010_complete$F10U51G55 %in% c( 3, 4 ) ~ "During the last year"
+    d_2010_complete$F10U51G55 %in% c( 2, 3, 4 ) ~ "Ever"
   ),
-  levels = c( "Never", "During the last year", "More than one year ago" ) )
+  levels = c( "Never", "Ever" ) )
 table( d_2010_complete$suicidal_thoughts, useNA = "always" )
 
 # suicidal attempts
@@ -472,24 +473,109 @@ d_2010_complete$F10U52G56[ d_2010_complete$F10U52G56 == 9 ] <- NA
 d_2010_complete$suicidal_attempts <- factor( 
   case_when(
     d_2010_complete$F10U52G56 == 1 ~ "Never",
-    d_2010_complete$F10U52G56 == 2 ~ "More than one year ago",
-    d_2010_complete$F10U52G56 %in% c( 3, 4 ) ~ "During the last year"
+    d_2010_complete$F10U52G56 %in% c( 2, 3, 4 ) ~ "Ever"
   ),
-  levels = c( "Never", "During the last year", "More than one year ago" ) )
+  levels = c( "Never", "Ever" ) )
 table( d_2010_complete$suicidal_attempts, useNA = "always" )
+```
 
-
-
-##### Physical Health #####
-
+```{r}
+##### physical health outcomes #####
 
 ```
 
-### 5. Registry-Based Health Outcomes
-#### 5.1. Prepare dataset
-##### 5.1.1. Prescribed Drug Register
+##### 3.1.2. Calculate prevalence by sexual identity
 ```{r}
-# prepare dataset
+# create survey design
+d_2010_complete_cc <- d_2010_complete
+
+survey_design_cc <- svydesign( ids = ~ 1, 
+                               strata = ~ sampling_strata_region,
+                               weights = ~ design_weight,
+                               fpc = ~ no.of.population,
+                               data = d_2010_complete_cc )
+
+# the following analyses assume MCAR
+
+variables_list <- list(
+  list( variable = "psychological_distress_binary", condition = "Yes", name = "psychological_distress" ),
+  list( variable = "depression_self_report", condition = "Ever", name = "depression_self_report" ),
+  list( variable = "suicidal_thoughts", condition = "Ever", name = "suicidal_thoughts" ),
+  list( variable = "suicidal_attempts", condition = "Ever", name = "suicidal_attempts" )
+  )
+
+# by sexual identity
+results_list <- calculate_svyby_proportion( variables_list = variables_list, 
+                                            design = survey_design_cc, 
+                                            year = 2010, 
+                                            group_var = "sexual_identity_2010" )
+
+self_report_health_outcomes_2010 <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
+
+# overall sample
+results_list_overall <- calculate_svyby_proportion_overall( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010 )
+
+self_report_health_outcomes_2010_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list_overall ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+self_report_health_outcomes_2010_overall[ 1, 1 ] <- "Stockholm County"
+
+writexl::write_xlsx( rbind( self_report_health_outcomes_2010, self_report_health_outcomes_2010_overall ), "prevalence_cc_self_report_health_outcomes_2010.xlsx" )
+
+# by sex
+results_list_by_sex <- calculate_svyby_proportion_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010,
+  group_var = "sexual_identity_2010 + sex" )
+
+self_report_health_outcomes_2010_by_sex <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "sex" ) )
+}, 
+results_list_by_sex )
+writexl::write_xlsx( self_report_health_outcomes_2010_by_sex, "prevalence_cc_self_report_health_outcomes_2010_by_sex.xlsx" )
+
+# by age
+results_list_by_age <- calculate_svyby_proportion_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010,
+  group_var = "sexual_identity_2010 + age_cat" )
+
+self_report_health_outcomes_2010_by_age <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "age_cat" ) )
+}, 
+results_list_by_age )
+writexl::write_xlsx( self_report_health_outcomes_2010_by_age, "prevalence_cc_self_report_health_outcomes_2010_by_age.xlsx" )
+
+# by country of birth
+results_list_by_country_of_birth <- calculate_svyby_proportion_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010,
+  group_var = "sexual_identity_2010 + country_of_birth" )
+
+self_report_health_outcomes_2010_by_country_of_birth <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "country_of_birth" ) )
+}, 
+results_list_by_country_of_birth )
+writexl::write_xlsx( self_report_health_outcomes_2010_by_country_of_birth, "prevalence_cc_self_report_health_outcomes_2010_by_country_of_birth.xlsx" )
+```
+
+### 4. Registry-Based Health Outcomes
+#### 4.1. Prescribed Drug Register
+##### 4.1.1. Complete-case analysis
+###### 4.1.1.1. Prepare dataset
+```{r}
 pdr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/atc_2002_2014.sas7bdat") # include participants who HAD at least one prescription record of N05B or N06A from 2005-06-30 to 2021-12-31
 
 d_pdr_regitry <- pdr_regitry %>%
@@ -585,11 +671,8 @@ d_2010_complete_merged_cleaned <- d_2010_complete_merged_cleaned %>%
 summary( d_2010_complete_merged_cleaned[ , ( 60:131 ) ] )
 
 # in summary, the final merged dataset assumes that all participants have complete follow-up through register from 2005 to 2021; therefore, those who do not have any prescription record are assumed not to have a prescription
-```
 
-#### 5.2. Complete-case analysis
-##### 5.2.1. Define survey design
-```{r}
+
 d_2010_complete_cc <- d_2010_complete_merged_cleaned
 
 # create survey design
@@ -602,10 +685,9 @@ survey_design_cc <- svydesign( ids = ~ 1,
 # the following analyses assume MCAR
 ```
 
-##### 5.2.2. Mental health outcomes
-###### 5.2.2.1. Use of antidepressants and anxiolytics
+###### 4.1.1.2. Use of antidepressants and anxiolytics
 ```{r}
-##### among all participants #####
+##### among all participants (prevalence) #####
 
 # calculate year-specific prevalence by sexual identity
 
@@ -662,7 +744,6 @@ results_list <- list()
 for ( year in 2005:2021 ) {
   svyby_result <- svyciprop( formula = as.formula( paste0( "~ I(ever_use_N06A_", year, " == 'Yes')" ) ), # antidepressants
                              design = subset( survey_design_cc, !is.na( get( paste0( "ever_use_N06A_", year ) ) ) ),
-                             vartype = "ci",
                              method = "beta" )
   
   svyby_result <- data.frame( svyby_result[ 1 ], confint( svyby_result )[ 1 ], confint( svyby_result )[ 2 ] )
@@ -730,10 +811,10 @@ results_combined_long$year <- as.numeric( results_combined_long$year )
 
 
 # plot
-color_values <- c( "Heterosexual" = "#2166AC", 
+color_values <- c( "Heterosexual" = "red", 
                    "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "orange", 
-                   "Stockholm County" = "red" )
+                   "Bisexual" = "#C77CFF", 
+                   "Stockholm County" = "grey20" )
 
 ggplot( 
   results_combined_long %>%
@@ -785,7 +866,174 @@ ggplot(
 ```
 
 ```{r}
-##### by sex #####
+##### among all participants (number of prescriptions) #####
+
+# calculate average number of prescriptions by sexual identity
+
+# antidepressants
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~presence_N06A_Yes_", year ) ), 
+                         by = ~ sexual_identity_2010, 
+                         design = survey_design_cc, 
+                         FUN = svymean,
+                         vartype = "ci" )
+  
+  colnames( svyby_result )[-1] <- c( paste0( "presence_N06A_Yes_", year, "_point_estimate" ), 
+                                     paste0( "presence_N06A_Yes_", year, "_lower_ci" ),
+                                     paste0( "presence_N06A_Yes_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
+
+
+# anxiolytics
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svyby( formula = as.formula( paste0( "~presence_N05B_Yes_", year ) ), 
+                         by = ~ sexual_identity_2010, 
+                         design = survey_design_cc, 
+                         FUN = svymean,
+                         vartype = "ci" )
+  
+  colnames( svyby_result )[-1] <- c( paste0( "presence_N05B_Yes_", year, "_point_estimate" ), 
+                                     paste0( "presence_N05B_Yes_", year, "_lower_ci" ),
+                                     paste0( "presence_N05B_Yes_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N05B <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
+
+
+# calculate overall average number of prescriptions
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svymean( x = as.formula( paste0( "~presence_N06A_Yes_", year ) ), # antidepressants
+                           design = subset( survey_design_cc, !is.na( get( paste0( "presence_N06A_Yes_", year ) ) ) ) )
+  
+  svyby_result <- data.frame( svyby_result[ 1 ], confint( svyby_result )[ 1 ], confint( svyby_result )[ 2 ] )
+  
+  colnames( svyby_result ) <- c( paste0( "presence_N06A_Yes_", year, "_point_estimate" ), 
+                                 paste0( "presence_N06A_Yes_", year, "_lower_ci" ),
+                                 paste0( "presence_N06A_Yes_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N06A_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+results_N06A_overall[ 1, 1 ] <- "Stockholm County"
+
+
+results_list <- list()
+for ( year in 2005:2021 ) {
+  svyby_result <- svymean( x = as.formula( paste0( "~presence_N05B_Yes_", year ) ), # anxiolytics
+                           design = subset( survey_design_cc, !is.na( get( paste0( "presence_N05B_Yes_", year ) ) ) ) )
+  
+  svyby_result <- data.frame( svyby_result[ 1 ], confint( svyby_result )[ 1 ], confint( svyby_result )[ 2 ] )
+  
+  colnames( svyby_result ) <- c( paste0( "presence_N05B_Yes_", year, "_point_estimate" ), 
+                                 paste0( "presence_N05B_Yes_", year, "_lower_ci" ),
+                                 paste0( "presence_N05B_Yes_", year, "_upper_ci" ) )
+  
+  results_list[[ as.character( year ) ]] <- svyby_result %>%
+    remove_rownames()
+}
+
+results_N05B_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+results_N05B_overall[ 1, 1 ] <- "Stockholm County"
+
+
+# combine datasets
+results_N06A_all <- bind_rows( results_N06A, results_N06A_overall )
+results_N05B_all <- bind_rows( results_N05B, results_N05B_overall )
+results_combined <- full_join( results_N06A_all, results_N05B_all, by = "sexual_identity_2010" )
+str( results_combined )
+
+results_combined_long <- results_combined %>%
+  pivot_longer(
+    cols = starts_with( "presence_" ),
+    names_to = c( "drug_class", "year", ".value" ), 
+    names_pattern = "presence_(.*)_Yes_(\\d{4})_(.*)$" )
+
+str( results_combined_long )
+results_combined_long$sexual_identity_2010 <- factor( results_combined_long$sexual_identity_2010,
+                                                      levels = c( "Heterosexual", "Homosexual", "Bisexual", "Uncertain", "Stockholm County" ) )
+results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
+results_combined_long$year <- as.numeric( results_combined_long$year )
+
+# plot
+ggplot( 
+  results_combined_long %>%
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual", "Stockholm County" ) ),
+  
+  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  
+  geom_line( linewidth = 0.6 ) +
+  
+  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
+               alpha = 0.2, 
+               color = NA ) +
+  
+  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
+                      labels = seq( 2005, 2021, by = 4 ),
+                      expand = c( 0.02, 0 ) ) +
+  
+  scale_color_manual( values = color_values ) +
+  
+  scale_fill_manual( values = color_values ) +
+  
+  labs(
+    x = "Calendar Year",
+    y = "Average Number of Dispensed Prescriptions"
+  ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing = unit( 0.5, "lines" ) ) +
+  
+  facet_wrap( ~ drug_class, 
+              ncol = 1, 
+              scales = "free_y",
+              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
+                                                   "N06A" = "Antidepressants" ) ) ) +
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 1.6 ), breaks = c( 0, 0.4, 0.8, 1.2, 1.6 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 1.6 ), breaks = c( 0, 0.4, 0.8, 1.2, 1.6 ) )
+    ) )
+```
+
+```{r}
+##### by sex (prevalence) #####
 
 # year-specific prevalence
 
@@ -858,7 +1106,7 @@ results_combined_long$year <- as.numeric( results_combined_long$year )
 
 color_values <- c( "Heterosexual" = "red", 
                    "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "orange" )
+                   "Bisexual" = "#C77CFF" )
 
 # among females
 ggplot( 
@@ -960,7 +1208,7 @@ ggplot(
 ```
 
 ```{r}
-##### by age groups #####
+##### by age groups (prevalence) #####
 
 # year-specific prevalence
 
@@ -1227,7 +1475,7 @@ ggplot(
 ```
 
 ```{r}
-##### by country of birth #####
+##### by country of birth (prevalence) #####
 
 # year-specific prevalence
 
@@ -1296,11 +1544,6 @@ results_combined_long <- results_combined %>%
 str( results_combined_long )
 results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
 results_combined_long$year <- as.numeric( results_combined_long$year )
-
-
-color_values <- c( "Heterosexual" = "red", 
-                   "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "orange" )
 
 # born in Sweden
 ggplot( 
@@ -1450,216 +1693,10 @@ ggplot(
   ) )
 ```
 
+#### 4.2. National Patient Register
+##### 4.2.1. Complete-case analysis
+###### 4.2.1.1. Prepare dataset
 ```{r}
-##### among all participants #####
-# average no. of prescriptions
-
-# antidepressants
-results_list <- list()
-
-for ( year in 2005:2021 ) {
-  svyby_result <- svyby( formula = as.formula( paste0( "~presence_N06A_Yes_", year ) ), 
-                         by = ~ sexual_identity_2010, 
-                         design = survey_design_cc, 
-                         FUN = svymean,
-                         vartype = "ci" )
-  
-  colnames( svyby_result )[-1] <- c( paste0( "presence_N06A_Yes_", year, "_point_estimate" ), 
-                                     paste0( "presence_N06A_Yes_", year, "_lower_ci" ),
-                                     paste0( "presence_N06A_Yes_", year, "_upper_ci" ) )
-  
-  results_list[[ as.character( year ) ]] <- svyby_result %>%
-    remove_rownames()
-  }
-
-results_N06A <- Reduce( function( x, y ){
-  merge( x, y, by = "sexual_identity_2010" )
-  }, 
-  results_list )
-
-
-# anxiolytics
-results_list <- list()
-
-for ( year in 2005:2021 ) {
-  svyby_result <- svyby( formula = as.formula( paste0( "~presence_N05B_Yes_", year ) ), 
-                         by = ~ sexual_identity_2010, 
-                         design = survey_design_cc, 
-                         FUN = svymean,
-                         vartype = "ci" )
-  
-  colnames( svyby_result )[-1] <- c( paste0( "presence_N05B_Yes_", year, "_point_estimate" ), 
-                                     paste0( "presence_N05B_Yes_", year, "_lower_ci" ),
-                                     paste0( "presence_N05B_Yes_", year, "_upper_ci" ) )
-  
-  results_list[[ as.character( year ) ]] <- svyby_result %>%
-    remove_rownames()
-}
-
-results_N05B <- Reduce( function( x, y ){
-  merge( x, y, by = "sexual_identity_2010" )
-}, 
-results_list )
-
-
-# combine and prepare datasets
-results_combined <- full_join( results_N06A, results_N05B, by = "sexual_identity_2010" )
-str( results_combined )
-
-results_combined_long <- results_combined %>%
-  pivot_longer(
-    cols = starts_with( "presence_" ),
-    names_to = c( "drug_class", "year", ".value" ), 
-    names_pattern = "presence_(.*)_Yes_(\\d{4})_(.*)$" )
-
-str( results_combined_long )
-results_combined_long$drug_class <- factor( results_combined_long$drug_class, levels = c( "N06A", "N05B" ) )
-results_combined_long$year <- as.numeric( results_combined_long$year )
-
-# plot
-ggplot( 
-  results_combined_long %>%
-    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ),
-  
-  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
-  
-  geom_line( linewidth = 0.6 ) +
-  
-  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
-               alpha = 0.2, 
-               color = NA ) +
-  
-  geom_vline( xintercept = 2009,
-              linetype = "dashed",
-              color = "grey",
-              linewidth = 0.6 ) +
-  
-  scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
-                      labels = seq( 2005, 2021, by = 4 ),
-                      expand = c( 0.02, 0 ) ) +
-  
-  scale_color_manual( values = c( "red", "#87CEEB", "orange" ),
-                      breaks = c( "Heterosexual", "Homosexual", "Bisexual" ) ) +
-  
-  scale_fill_manual( values = c( "red", "#87CEEB", "orange" ) ) +
-  
-  labs(
-    x = "Year",
-    y = "Average Number of Prescriptions"
-  ) +
-  
-  theme_classic() +
-  theme( axis.title.x = element_text( family = "Arial", size = 11 ),
-         axis.text.x = element_text( family = "Arial", size = 11 ),
-         axis.text.y = element_text( family = "Arial", size = 11 ),
-         axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
-         legend.title = element_blank(),
-         legend.position = "bottom",
-         strip.background = element_blank(),
-         strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 2, "lines" ) ) +
-  
-  facet_wrap( ~ drug_class, 
-              ncol = 1, 
-              scales = "free_y",
-              labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
-                                                   "N06A" = "Antidepressants" ) ) ) +
-  ggh4x::facetted_pos_scales( y = list(
-    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 0.8 ), breaks = c( 0, 0.2, 0.4, 0.6, 0.8 ) ),
-    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 1.6 ), breaks = c( 0, 0.4, 0.8, 1.2, 1.6 ) )
-    ) )
+npr_regitry <- read_sas("/Volumes/LGBT Project data/Mental health outcomes/suicide_2002_2014.sas7bdat")
 ```
 
-```{r}
-##### among participants who have any prescription during 2005-2021 #####
-# average no. of prescriptions
-
-# antidepressants
-
-```
-
-### 4. Prevalence of Mental Health Outcomes
-#### 4.1. Complete-case analysis
-##### 4.1.1. Define survey design
-```{r}
-d_2010_complete_cc <- d_2010_complete
-
-survey_design_cc <- svydesign( ids = ~ 1, 
-                               strata = ~ sampling_strata_region,
-                               weights = ~ design_weight,
-                               fpc = ~ no.of.population,
-                               data = d_2010_complete_cc )
-
-# the following analyses assume MCAR
-```
-
-##### 4.1.2. Psychological stress
-```{r}
-prop_cc_psychological_stress <- svyby( formula = ~ I( psychological_distress == "Yes" ),
-                                       by = ~ sexual_identity_2010,
-                                       design = subset( survey_design_cc, !is.na( sexual_identity_2010 ) & 
-                                                          !is.na( psychological_distress ) ),
-                                       FUN = svyciprop,
-                                       vartype = "ci",
-                                       method = "beta" )
-
-colnames( prop_cc_psychological_stress ) <- c( "sexual_identity_2010", "psychological_stress_point_estimate_2010", "psychological_stress_lower_ci_2010", "psychological_stress_upper_ci_2010" )
-
-prop_cc_psychological_stress <- left_join( prop_cc_psychological_stress,
-                                       d_2010_complete_cc[ !is.na( d_2010_complete_cc$sexual_identity_2010 ) &
-                                             !is.na( d_2010_complete_cc$psychological_distress ), ] %>% 
-                                         group_by( sexual_identity_2010 = sexual_identity_2010 ) %>% 
-                                         summarise( psychological_stress_sample_size_2010 = n() ),
-                                       by = "sexual_identity_2010" ) %>%
-  mutate( psychological_stress_sample_size_2010 = prettyNum( psychological_stress_sample_size_2010, big.mark = ",", preserve.width = "none" ) )
-```
-
-##### 4.1.3. Suicide thoughts
-```{r}
-prop_cc_suicide_thoughts <- svyby( formula = ~ I( suicide_thoughts == "Ever" ),
-                                   by = ~ sexual_identity_2010,
-                                   design = subset( survey_design_cc, !is.na( sexual_identity_2010 ) & !is.na( suicide_thoughts ) ),
-                                   FUN = svyciprop,
-                                   vartype = "ci",
-                                   method = "beta" )
-
-colnames( prop_cc_suicide_thoughts ) <- c( "sexual_identity_2010", "suicide_thoughts_point_estimate_2010", "suicide_thoughts_lower_ci_2010", "suicide_thoughts_upper_ci_2010" )
-
-prop_cc_suicide_thoughts <- left_join( prop_cc_suicide_thoughts,
-                                       d_2010_complete_cc[ !is.na( d_2010_complete_cc$sexual_identity_2010 ) &
-                                             !is.na( d_2010_complete_cc$suicide_thoughts ), ] %>% 
-                                         group_by( sexual_identity_2010 = sexual_identity_2010 ) %>% 
-                                         summarise( suicide_thoughts_sample_size_2010 = n() ),
-                                       by = "sexual_identity_2010" ) %>%
-  mutate( suicide_thoughts_sample_size_2010 = prettyNum( suicide_thoughts_sample_size_2010, big.mark = ",", preserve.width = "none" ) )
-```
-
-##### 4.1.4. Suicide attempts
-```{r}
-prop_cc_suicide_attempts <- svyby( formula = ~ I( suicide_attempts == "Ever" ),
-                                   by = ~ sexual_identity_2010,
-                                   design = subset( survey_design_cc, !is.na( sexual_identity_2010 ) & !is.na( suicide_attempts ) ),
-                                   FUN = svyciprop,
-                                   vartype = "ci",
-                                   method = "beta" )
-
-colnames( prop_cc_suicide_attempts ) <- c( "sexual_identity_2010", "suicide_attempts_point_estimate_2010", "suicide_attempts_lower_ci_2010", "suicide_attempts_upper_ci_2010" )
-
-prop_cc_suicide_attempts <- left_join( prop_cc_suicide_attempts,
-                                       d_2010_complete_cc[ !is.na( d_2010_complete_cc$sexual_identity_2010 ) &
-                                                             !is.na( d_2010_complete_cc$suicide_attempts ), ] %>% 
-                                         group_by( sexual_identity_2010 = sexual_identity_2010 ) %>% 
-                                         summarise( suicide_attempts_sample_size_2010 = n() ),
-                                       by = "sexual_identity_2010" ) %>%
-  mutate( suicide_attempts_sample_size_2010 = prettyNum( suicide_attempts_sample_size_2010, big.mark = ",", preserve.width = "none" ) )
-```
-
-##### 4.1.5. Combine datasets
-```{r}
-prop_cc_mental_health <- prop_cc_psychological_stress %>%
-  left_join( prop_cc_suicide_thoughts, by = "sexual_identity_2010" ) %>%
-  left_join( prop_cc_suicide_attempts, by = "sexual_identity_2010" )
-
-writexl::write_xlsx( prop_cc_mental_health, "prop_cc_mental_health_2010.xlsx" )
-```
