@@ -1,7 +1,7 @@
 ---
 title: "Sexual identity and health outcomes in Stockholm County, SPHC 2021"
-author: Guoqiang Zhang
-email: guoqiang.zhang@ki.se
+author: Willi Zhang
+email: willi.zhang@ki.se
 output: html_notebook
 editor_options: 
   chunk_output_type: console
@@ -24,12 +24,12 @@ library(survey)
 library(svyVGAM)
 library(vcd)
 library(rcompanion)
-source("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/Helper_functions.R") # helper function
+source('Helper_functions.R') # helper function
 ```
 
 ### 2. Import and Prepare Data
 ```{r}
-load("/Volumes/LGBT Project data/d_2021.RData")
+load('/Volumes/LGBT Project data/d_2021.RData')
 
 # sampling strata
 n_miss( d_2021$stratum )
@@ -327,40 +327,67 @@ d_2021_complete <- bind_rows( d_2021, replicated_rows ) # 47,885 individuals in 
 #### 3.1. Complete-case analysis
 ##### 3.1.1. Prepare dataset
 ```{r}
+##### physical health outcomes #####
+
+# self-rated health
+table( d_2021_complete$F1, useNA = "always" )
+d_2021_complete$poor_health <- factor( if_else( d_2021_complete$F1 >= 4, "Yes", "No" ),
+                                       levels = c( "Yes", "No" ) )
+table( d_2021_complete$poor_health, useNA = "always" )
+
+# chronic health condition or disability
+table( d_2021_complete$F2A, useNA = "always" )
+d_2021_complete$chronic_condition <- factor( if_else( d_2021_complete$F2A == 2, "Yes", "No" ),
+                                             levels = c( "Yes", "No" ) )
+table( d_2021_complete$chronic_condition, useNA = "always" )
+```
+
+```{r}
 ##### mental health outcomes #####
 
 # recent psychological distress
 summary( d_2021_complete$F21Kessler6 )
-d_2021_complete$psychological_distress_continuous <- d_2021_complete$F21Kessler6
-d_2021_complete$psychological_distress_binary <- factor( ifelse( d_2021_complete$F21Kessler6 < 8, "No", "Yes" ),
-                                                         levels = c( "Yes", "No" ) ) # psychological distress defined as a score >= 8
-table( d_2021_complete$psychological_distress_binary, useNA = "always" )
+d_2021_complete$psychological_distress <- factor( ifelse( d_2021_complete$F21Kessler6 >= 8, "Yes", "No" ),
+                                                  levels = c( "Yes", "No" ) ) # psychological distress defined as a score >= 8
+table( d_2021_complete$psychological_distress, useNA = "always" )
 
 # suicidal thoughts
 table( d_2021_complete$F21F19_Q31, useNA = "always" )
 d_2021_complete$suicidal_thoughts <- factor( 
   case_when(
-    d_2021_complete$F21F19_Q31 == 1 ~ "Never",
-    d_2021_complete$F21F19_Q31 %in% c( 2, 3, 4 ) ~ "Ever"
+    d_2021_complete$F21F19_Q31 == 1 ~ "No",
+    d_2021_complete$F21F19_Q31 %in% c( 2, 3, 4 ) ~ "Yes"
   ),
-  levels = c( "Never", "Ever" ) )
+  levels = c( "Yes", "No" ) )
 table( d_2021_complete$suicidal_thoughts, useNA = "always" )
 
-# suicidal attempts
+# suicide attempts
 table( d_2021_complete$F21F20_Q32, useNA = "always" )
-d_2021_complete$suicidal_attempts <- factor( 
+d_2021_complete$suicide_attempts <- factor( 
   case_when(
-    d_2021_complete$F21F20_Q32 == 1 ~ "Never",
-    d_2021_complete$F21F20_Q32 %in% c( 2, 3, 4 ) ~ "Ever"
+    d_2021_complete$F21F20_Q32 == 1 ~ "No",
+    d_2021_complete$F21F20_Q32 %in% c( 2, 3, 4 ) ~ "Yes"
   ),
-  levels = c( "Never", "Ever" ) )
-table( d_2021_complete$suicidal_attempts, useNA = "always" )
+  levels = c( "Yes", "No" ) )
+table( d_2021_complete$suicide_attempts, useNA = "always" )
 ```
 
 ```{r}
-##### physical health outcomes #####
+##### behavioral health outcomes #####
 
+# frequent heavy episodic drinking (at least once per week)
+table( d_2021_complete$F29_Q41, useNA = "always" )
+table( d_2021_complete$F27_Q39, useNA = "always" )
+d_2021_complete$F29_Q41 <- ifelse( d_2021_complete$F27_Q39 == 5 & is.na( d_2021_complete$F29_Q41 ), 5, d_2021_complete$F29_Q41 )
+d_2021_complete$frequent_HED <- factor( if_else( d_2021_complete$F29_Q41 <= 2, "Yes", "No" ),
+                                        levels = c( "Yes", "No" ) )
+table( d_2021_complete$frequent_HED, useNA = "always" )
 
+# ever cannabis use
+table( d_2021_complete$F36_Q48, useNA = "always" )
+d_2021_complete$cannabis_use <- factor( if_else( d_2021_complete$F36_Q48 == 1, "No", "Yes" ),
+                                        levels = c( "Yes", "No" ) )
+table( d_2021_complete$cannabis_use, useNA = "always" )
 ```
 
 ##### 3.1.2. Calculate prevalence by sexual identity
@@ -377,9 +404,13 @@ survey_design_cc <- svydesign( ids = ~ 1,
 # the following analyses assume MCAR
 
 variables_list <- list(
-  list( variable = "psychological_distress_binary", condition = "Yes", name = "psychological_distress" ),
-  list( variable = "suicidal_thoughts", condition = "Ever", name = "suicidal_thoughts" ),
-  list( variable = "suicidal_attempts", condition = "Ever", name = "suicidal_attempts" )
+  list( variable = "poor_health", condition = "Yes", name = "poor_health" ),
+  list( variable = "chronic_condition", condition = "Yes", name = "chronic_condition" ),
+  list( variable = "psychological_distress", condition = "Yes", name = "psychological_distress" ),
+  list( variable = "suicidal_thoughts", condition = "Yes", name = "suicidal_thoughts" ),
+  list( variable = "suicide_attempts", condition = "Yes", name = "suicide_attempts" ),
+  list( variable = "frequent_HED", condition = "Yes", name = "frequent_HED" ),
+  list( variable = "cannabis_use", condition = "Yes", name = "cannabis_use" )
 )
 
 # by sexual identity
@@ -434,17 +465,4 @@ self_report_health_outcomes_2021_by_age <- Reduce( function( x, y ){
 }, 
 results_list_by_age )
 writexl::write_xlsx( self_report_health_outcomes_2021_by_age, "prevalence_cc_self_report_health_outcomes_2021_by_age.xlsx" )
-
-# by country of birth
-results_list_by_country_of_birth <- calculate_svyby_proportion_subgroup( 
-  variables_list = variables_list,
-  design = survey_design_cc,
-  year = 2021,
-  group_var = "sexual_identity_2021 + country_of_birth" )
-
-self_report_health_outcomes_2021_by_country_of_birth <- Reduce( function( x, y ){
-  merge( x, y, by = c( "sexual_identity_2021", "country_of_birth" ) )
-}, 
-results_list_by_country_of_birth )
-writexl::write_xlsx( self_report_health_outcomes_2021_by_country_of_birth, "prevalence_cc_self_report_health_outcomes_2021_by_country_of_birth.xlsx" )
 ```
