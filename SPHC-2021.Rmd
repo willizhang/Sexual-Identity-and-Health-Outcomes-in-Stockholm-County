@@ -327,22 +327,6 @@ d_2021_complete <- bind_rows( d_2021, replicated_rows ) # 47,885 individuals in 
 #### 3.1. Complete-case analysis
 ##### 3.1.1. Prepare dataset
 ```{r}
-##### physical health outcomes #####
-
-# self-rated health
-table( d_2021_complete$F1, useNA = "always" )
-d_2021_complete$poor_health <- factor( if_else( d_2021_complete$F1 >= 4, "Yes", "No" ),
-                                       levels = c( "Yes", "No" ) )
-table( d_2021_complete$poor_health, useNA = "always" )
-
-# chronic health condition or disability
-table( d_2021_complete$F2A, useNA = "always" )
-d_2021_complete$chronic_condition <- factor( if_else( d_2021_complete$F2A == 2, "Yes", "No" ),
-                                             levels = c( "Yes", "No" ) )
-table( d_2021_complete$chronic_condition, useNA = "always" )
-```
-
-```{r}
 ##### mental health outcomes #####
 
 # recent psychological distress
@@ -370,18 +354,9 @@ d_2021_complete$suicide_attempts <- factor(
   ),
   levels = c( "Yes", "No" ) )
 table( d_2021_complete$suicide_attempts, useNA = "always" )
-```
 
-```{r}
+
 ##### behavioral health outcomes #####
-
-# frequent heavy episodic drinking (at least once per week)
-table( d_2021_complete$F29_Q41, useNA = "always" )
-table( d_2021_complete$F27_Q39, useNA = "always" )
-d_2021_complete$F29_Q41 <- ifelse( d_2021_complete$F27_Q39 == 5 & is.na( d_2021_complete$F29_Q41 ), 5, d_2021_complete$F29_Q41 )
-d_2021_complete$frequent_HED <- factor( if_else( d_2021_complete$F29_Q41 <= 2, "Yes", "No" ),
-                                        levels = c( "Yes", "No" ) )
-table( d_2021_complete$frequent_HED, useNA = "always" )
 
 # ever cannabis use
 table( d_2021_complete$F36_Q48, useNA = "always" )
@@ -404,12 +379,9 @@ survey_design_cc <- svydesign( ids = ~ 1,
 # the following analyses assume MCAR
 
 variables_list <- list(
-  list( variable = "poor_health", condition = "Yes", name = "poor_health" ),
-  list( variable = "chronic_condition", condition = "Yes", name = "chronic_condition" ),
   list( variable = "psychological_distress", condition = "Yes", name = "psychological_distress" ),
   list( variable = "suicidal_thoughts", condition = "Yes", name = "suicidal_thoughts" ),
   list( variable = "suicide_attempts", condition = "Yes", name = "suicide_attempts" ),
-  list( variable = "frequent_HED", condition = "Yes", name = "frequent_HED" ),
   list( variable = "cannabis_use", condition = "Yes", name = "cannabis_use" )
 )
 

@@ -105,21 +105,6 @@ d_2010$sexual_identity_2021 <- factor( ifelse( d_2010$F21F91 == 1, "Heterosexual
                                           levels = c( "Heterosexual", "Homosexual", "Bisexual", "None of the above" ) )
 table( d_2010$sexual_identity_2021, useNA = "always" )
 
-# any change in sexual identity in 2010-2021
-d_2010 <- d_2010 %>%
-  mutate(
-    sexual_identity_fluidity = ifelse(
-      replace( as.character( sexual_identity_2010 ), sexual_identity_2010 == "Uncertain", "Other" ) != 
-        replace( as.character( sexual_identity_2014 ), sexual_identity_2014 == "None of the above", "Other" ) | 
-        replace( as.character( sexual_identity_2010 ), sexual_identity_2010 == "Uncertain", "Other" ) != 
-        replace( as.character( sexual_identity_2021 ), sexual_identity_2021 == "None of the above", "Other" ) |
-        replace( as.character( sexual_identity_2014 ), sexual_identity_2014 == "None of the above", "Other" ) != 
-        replace( as.character( sexual_identity_2021 ), sexual_identity_2021 == "None of the above", "Other" ),
-      1, 
-      0
-      )
-    )
-
 # sex
 table( d_2010$kon, useNA = "always" )
 d_2010$sex <- factor( ifelse( d_2010$kon == 1, "Male", "Female" ),
@@ -201,7 +186,7 @@ table( d_2010$occupation, useNA = "always" )
 
 # disposable income
 summary( d_2010$dispink2010, useNA = "always" )
-d_2010$dispink2010 <- d_2010$dispink2010*( 1960/1733 ) # Consumer Price Index (CPI)-adjusted income
+d_2010$dispink2010 <- d_2010$dispink2010*( 343.19/303.46 ) # Consumer Price Index (CPI)-adjusted income (https://www.statistikdatabasen.scb.se/pxweb/en/ssd/START__PR__PR0101__PR0101L/KPIFastAmed/table/tableViewLayout1/)
 d_2010$income <- factor( ifelse( d_2010$dispink2010 <= 2500, "<=2,500",
                                  ifelse( d_2010$dispink2010 > 2500 & d_2010$dispink2010 <= 3500, "(2,500, 3,500]",
                                          ifelse( d_2010$dispink2010 > 3500 & d_2010$dispink2010 <= 4500, "(3,500, 4,500]", ">4,500" ) ) ),
@@ -215,26 +200,12 @@ d_2010$marital_status <- factor( ifelse( d_2010$civil2010 == "G" | d_2010$civil2
                                  levels = c( "Never married", "Currently married", "Other" ) )
 table( d_2010$marital_status, useNA = "always" )
 
-# living alone
-table( d_2010$F10U53aG57a, useNA = "always" )
-d_2010$F10U53aG57a[ d_2010$F10U53aG57a == 9 ] <- NA
-d_2010$living_alone <- factor( ifelse( d_2010$F10U53aG57a == 1, "living_alone_no", "living_alone_yes" ), 
-                               levels = c( "living_alone_yes", "living_alone_no" ) )
-table( d_2010$living_alone, useNA = "always" )
-
-# personal support
-table( d_2010$F10U57G62, useNA = "always" )
-d_2010$F10U57G62[ d_2010$F10U57G62 == 9 ] <- NA
-d_2010$personal_support <- factor( ifelse( d_2010$F10U57G62 <= 2, "personal_support_yes", "personal_support_no" ), 
-                                   levels = c( "personal_support_yes", "personal_support_no" ) )
-table( d_2010$personal_support, useNA = "always" )
-
 
 ##### demographic characteristics #####
 
 # among respondents (n = 30,767)
 # make characteristics table by sexual identity
-explanatory =  c( "sex", "age_cat", "country_of_birth", "education", "occupation", "income", "marital_status", "living_alone", "personal_support" )
+explanatory =  c( "sex", "age_cat", "country_of_birth", "education", "occupation", "income", "marital_status" )
 dependent = "sexual_identity_2010"
 
 d_2010_table_1 <- d_2010 %>% 
@@ -283,78 +254,11 @@ format( round( fisher.test( x6[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
 format( round( fisher.test( x6[, c( 1, 3 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
 format( round( fisher.test( x6[, c( 1, 4 ) ], simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
 
-x7 <- table( d_2010$living_alone, d_2010$sexual_identity_2010 )
+x7 <- table( d_2010$occupation, d_2010$sexual_identity_2010 )
 x7
 format( round( fisher.test( x7[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
 format( round( fisher.test( x7[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
 format( round( fisher.test( x7[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
-
-x8 <- table( d_2010$personal_support, d_2010$sexual_identity_2010 )
-x8
-format( round( fisher.test( x8[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
-format( round( fisher.test( x8[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
-format( round( fisher.test( x8[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
-
-x9 <- table( d_2010$occupation, d_2010$sexual_identity_2010 )
-x9
-format( round( fisher.test( x9[, c( 1, 2 ) ] )$p.value, 3 ), nsmall = 3 )
-format( round( fisher.test( x9[, c( 1, 3 ) ] )$p.value, 3 ), nsmall = 3 )
-format( round( fisher.test( x9[, c( 1, 4 ) ] )$p.value, 3 ), nsmall = 3 )
-
-# make characteristics table by change of sexual identity
-explanatory =  c( "sex", "age_cat", "country_of_birth", "education", "occupation", "income", "marital_status", "living_alone", "personal_support", "sexual_identity_2010" )
-dependent = "sexual_identity_fluidity"
-
-d_2010_table_2 <- d_2010 %>% 
-  mutate( sexual_identity_fluidity = factor( sexual_identity_fluidity, levels = c( 0, 1 ), labels = c( "no change", "change" ) ) ) %>%
-  summary_factorlist( dependent,
-                      explanatory, 
-                      na_include = TRUE,
-                      na_include_dependent = TRUE, 
-                      total_col = TRUE,
-                      add_col_totals = TRUE,
-                      column = FALSE )
-
-# Fisher's test
-x1 <- table( d_2010$sex, d_2010$sexual_identity_fluidity )
-x1
-format( round( fisher.test( x1 )$p.value, 3 ), nsmall = 3 )
-
-x2 <- table( d_2010$age_cat, d_2010$sexual_identity_fluidity )
-x2
-format( round( fisher.test( x2, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x3 <- table( d_2010$country_of_birth, d_2010$sexual_identity_fluidity )
-x3
-format( round( fisher.test( x3, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x4 <- table( d_2010$education, d_2010$sexual_identity_fluidity )
-x4
-format( round( fisher.test( x4, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x5 <- table( d_2010$occupation, d_2010$sexual_identity_fluidity )
-x5
-format( round( fisher.test( x5, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x6 <- table( d_2010$income, d_2010$sexual_identity_fluidity )
-x6
-format( round( fisher.test( x6, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x7 <- table( d_2010$marital_status, d_2010$sexual_identity_fluidity )
-x7
-format( round( fisher.test( x7, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x8 <- table( d_2010$living_alone, d_2010$sexual_identity_fluidity )
-x8
-format( round( fisher.test( x8, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x9 <- table( d_2010$personal_support, d_2010$sexual_identity_fluidity )
-x9
-format( round( fisher.test( x9, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
-
-x10 <- table( d_2010$sexual_identity_2010, d_2010$sexual_identity_fluidity )
-x10
-format( round( fisher.test( x10, simulate.p.value = TRUE )$p.value, 3 ), nsmall = 3 )
 
 
 ##### design weights #####
@@ -442,24 +346,6 @@ d_2010_complete <- bind_rows( d_2010, replicated_rows ) # 55,340 individuals in 
 #### 3.1. Complete-case analysis
 ##### 3.1.1. Prepare dataset
 ```{r}
-##### physical health outcomes #####
-
-# self-rated health
-table( d_2010_complete$U03G03, useNA = "always" )
-d_2010_complete$U03G03[ d_2010_complete$U03G03 == 9 ] <- NA
-d_2010_complete$poor_health <- factor( if_else( d_2010_complete$U03G03 >= 4, "Yes", "No" ),
-                                       levels = c( "Yes", "No" ) )
-table( d_2010_complete$poor_health, useNA = "always" )
-
-# chronic health condition or disability
-table( d_2010_complete$U04aG04a, useNA = "always" )
-d_2010_complete$U04aG04a[ d_2010_complete$U04aG04a == 9 ] <- NA
-d_2010_complete$chronic_condition <- factor( if_else( d_2010_complete$U04aG04a == 2, "Yes", "No" ),
-                                             levels = c( "Yes", "No" ) )
-table( d_2010_complete$chronic_condition, useNA = "always" )
-```
-
-```{r}
 ##### mental health outcomes #####
 
 # recent psychological distress
@@ -489,20 +375,9 @@ d_2010_complete$suicide_attempts <- factor(
   ),
   levels = c( "Yes", "No" ) )
 table( d_2010_complete$suicide_attempts, useNA = "always" )
-```
 
-```{r}
+
 ##### behavioral health outcomes #####
-
-# frequent heavy episodic drinking (at least once per week)
-table( d_2010_complete$U34G38, useNA = "always" )
-d_2010_complete$U34G38[ d_2010_complete$U34G38 == 9 ] <- NA
-table( d_2010_complete$U32G36, useNA = "always" )
-d_2010_complete$U32G36[ d_2010_complete$U32G36 == 9 ] <- NA
-d_2010_complete$U34G38 <- ifelse( d_2010_complete$U32G36 == 1 & is.na( d_2010_complete$U34G38 ), 7, d_2010_complete$U34G38 )
-d_2010_complete$frequent_HED <- factor( if_else( d_2010_complete$U34G38 <= 3, "Yes", "No" ),
-                                        levels = c( "Yes", "No" ) )
-table( d_2010_complete$frequent_HED, useNA = "always" )
 
 # ever cannabis use
 table( d_2010_complete$U31, useNA = "always" )
@@ -526,12 +401,9 @@ survey_design_cc <- svydesign( ids = ~ 1,
 # the following analyses assume MCAR
 
 variables_list <- list(
-  list( variable = "poor_health", condition = "Yes", name = "poor_health" ),
-  list( variable = "chronic_condition", condition = "Yes", name = "chronic_condition" ),
   list( variable = "psychological_distress", condition = "Yes", name = "psychological_distress" ),
   list( variable = "suicidal_thoughts", condition = "Yes", name = "suicidal_thoughts" ),
   list( variable = "suicide_attempts", condition = "Yes", name = "suicide_attempts" ),
-  list( variable = "frequent_HED", condition = "Yes", name = "frequent_HED" ),
   list( variable = "cannabis_use", condition = "Yes", name = "cannabis_use" )
   )
 
@@ -594,30 +466,31 @@ writexl::write_xlsx( self_report_health_outcomes_2010_by_age, "prevalence_cc_sel
 ##### 4.1.1. Complete-case analysis
 ###### 4.1.1.1. Prepare dataset
 ```{r}
-d_pdr_regitry <- read_sas("/Volumes/LGBT Project data/Registry-based health outcomes/atc_2002_2014.sas7bdat")
+d_pdr_regitry <- read_sas( "/Volumes/projects/LGBT Project data/Registry-based health outcomes/atc_2002_2014.sas7bdat" )
 summary( d_pdr_regitry )
 unique( d_pdr_regitry$ATC )
 
 d_pdr_regitry <- d_pdr_regitry %>%
-  filter( ATC != "N05CD" ) # include participants who HAD at least one prescription record of N05B or N06A from 2005-06-30 to 2021-12-31
+  filter( !grepl( "^N05CD", ATC ) ) # include participants who HAD at least one prescription record of N05B or N06A from 2005-06-30 to 2021-12-31
 
 unique( d_pdr_regitry$ATC )
-summary( d_pdr_regitry ) # 306 rows have missing values in DDD
-nrow( d_pdr_regitry[ d_pdr_regitry$ddd == 0 & !is.na( d_pdr_regitry$ddd ), ] ) # 30 rows have a DDD value of 0
-View( d_pdr_regitry[ d_pdr_regitry$ddd == 0 | is.na( d_pdr_regitry$ddd ), ] )
-d_pdr_regitry$ddd <- ifelse( d_pdr_regitry$ddd == 0, NA, d_pdr_regitry$ddd )
+
+d_pdr_regitry <- d_pdr_regitry %>%
+  mutate( ANTAL = ifelse( ANTAL < 0, NA, ANTAL ),
+          dose = ANTAL * dddforp )
+summary( d_pdr_regitry )
 
 d_pdr_regitry <- d_pdr_regitry %>%
   mutate(
     presence_N06A = factor( if_else( grepl( "N06A", ATC ), "Yes", "No" ), levels = c( "Yes", "No" ) ),
     presence_N05B = factor( if_else( grepl( "N05B", ATC ), "Yes", "No" ), levels = c( "Yes", "No" ) ),
-    ddd_N06A = if_else( presence_N06A == "Yes", ddd, 0 ),
-    ddd_N05B = if_else( presence_N05B == "Yes", ddd, 0 ),
+    ddd_N06A = if_else( presence_N06A == "Yes", dose, 0 ),
+    ddd_N05B = if_else( presence_N05B == "Yes", dose, 0 ),
     year = year( EDATUM )
     )
 
 summary( d_pdr_regitry )
-sum( d_pdr_regitry$ddd, na.rm = TRUE )
+sum( d_pdr_regitry$dose, na.rm = TRUE )
 sum( d_pdr_regitry$ddd_N06A, na.rm = TRUE ) + sum( d_pdr_regitry$ddd_N05B, na.rm = TRUE ) # all numbers match
 
 count_ATC <- d_pdr_regitry %>%
@@ -631,7 +504,6 @@ count_ATC <- d_pdr_regitry %>%
   ) # calculate no. of prescriptions and DDD per year
 
 summary( count_ATC )
-miss_var_summary( count_ATC ) # 30 missing in ddd_N06A and 7 missing in ddd_N05B
 sum( count_ATC$prescription_N06A )
 sum( count_ATC$prescription_N05B )
 table( d_pdr_regitry$presence_N06A )
@@ -996,29 +868,32 @@ results_combined_long$drug_class <- factor( results_combined_long$drug_class, le
 results_combined_long$year <- as.numeric( results_combined_long$year )
 
 # plot
-ggplot( 
+p <- ggplot( 
   results_combined_long %>%
-    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual", "Stockholm County" ) ),
+    filter( sexual_identity_2010 %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ),
   
-  aes( x = year, y = point_estimate, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
+  aes( x = year, y = point_estimate*100, color = sexual_identity_2010, group = sexual_identity_2010 ) ) +
   
   geom_line( linewidth = 0.6 ) +
   
-  geom_ribbon( aes( ymin = lower_ci, ymax = upper_ci, fill = sexual_identity_2010 ), 
-               alpha = 0.2, 
-               color = NA ) +
+  geom_vline( xintercept = 2009, linetype = "dashed", color = "grey20", linewidth = 0.4 ) +
+
+  annotate( "text", x = 2009.2, y = 130, label = "Gender-neutral marriage\nlegislation", 
+            hjust = 0, size = 4, family = "Arial", color = "grey20" ) +
+
   
   scale_x_continuous( breaks = seq( 2005, 2021, by = 4 ), 
                       labels = seq( 2005, 2021, by = 4 ),
                       expand = c( 0.02, 0 ) ) +
   
-  scale_color_manual( values = color_values ) +
-  
-  scale_fill_manual( values = color_values ) +
+  scale_color_manual( values = color_values,
+                      breaks = c( "Heterosexual", "Homosexual", "Bisexual" ),
+                      labels = c( "Heterosexual", "Lesbian or gay", "Bisexual"),
+                      guide = guide_legend( nrow = 1 ) ) +
   
   labs(
-    x = "Calendar Year",
-    y = "Average Number of Dispensed Prescriptions"
+    x = "Year",
+    y = "Total Annual Dispensed Prescriptions per 100 Individuals"
   ) +
   
   theme_classic() +
@@ -1026,12 +901,12 @@ ggplot(
          axis.text.x = element_text( family = "Arial", size = 11 ),
          axis.text.y = element_text( family = "Arial", size = 11 ),
          axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
          legend.title = element_blank(),
          legend.position = "bottom",
          strip.background = element_blank(),
          strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 0.5, "lines" ) ) +
+         panel.spacing = unit( 1.5, "lines" ) ) +
   
   facet_wrap( ~ drug_class, 
               ncol = 1, 
@@ -1039,9 +914,12 @@ ggplot(
               labeller = labeller( drug_class = c( "N05B" = "Anxiolytics",
                                                    "N06A" = "Antidepressants" ) ) ) +
   ggh4x::facetted_pos_scales( y = list(
-    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 1.6 ), breaks = c( 0, 0.4, 0.8, 1.2, 1.6 ) ),
-    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 1.6 ), breaks = c( 0, 0.4, 0.8, 1.2, 1.6 ) )
+    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 160 ), breaks = c( 0, 40, 80, 120, 160 ) ),
+    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 160 ), breaks = c( 0, 40, 80, 120, 160 ) )
     ) )
+
+p
+ggsave( "health_trends.png", plot = p, width = 9, height = 10/1.1, dpi = 600 )
 ```
 
 ```{r}

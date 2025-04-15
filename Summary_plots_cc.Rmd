@@ -25,15 +25,15 @@ library(ggh4x)
 #### 2.1. Overall population
 ##### 2.1.1. Prepare dataset for plotting
 ```{r}
-prop_cc_health_outcome_2010 <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010.xlsx") %>%
+prop_cc_health_outcome_2010 <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010.xlsx') %>%
   rename( sexual_identity = sexual_identity_2010 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2014 <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014.xlsx") %>%
+prop_cc_health_outcome_2014 <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014.xlsx') %>%
   rename( sexual_identity = sexual_identity_2014 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2021 <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021.xlsx") %>%
+prop_cc_health_outcome_2021 <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021.xlsx') %>%
   rename( sexual_identity = sexual_identity_2021 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
@@ -49,77 +49,72 @@ str( prop_cc_health_outcome_long )
 prop_cc_health_outcome_long$sexual_identity <- factor( prop_cc_health_outcome_long$sexual_identity,
                                                       levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other", "Stockholm County" ) )
 prop_cc_health_outcome_long$health_outcome <- factor( prop_cc_health_outcome_long$health_outcome,
-                                                      levels = c( "poor_health", "chronic_condition", "psychological_distress", "suicidal_thoughts", "suicide_attempts", "frequent_HED", "cannabis_use" ) )
+                                                      levels = c( "psychological_distress", "cannabis_use", "suicidal_thoughts", "suicide_attempts" ) )
 ```
 
 ##### 2.1.2. Plotting
 ```{r}
-color_values <- c( "Heterosexual" = "red", 
-                   "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "#C77CFF", 
-                   "Stockholm County" = "grey20" )
-
+p1 <- 
 ggplot( prop_cc_health_outcome_long %>%
-          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual", "Stockholm County" ) ), 
+          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
         aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
   
-  geom_line( linewidth = 0.5 ) + 
-  geom_point( shape = 17, size = 2 ) +
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
   geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) + 
   
   scale_x_discrete( expand = c( 0.05, 0 ) ) +
-  scale_y_continuous( labels = scales::percent ) +
+
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
   
-  scale_color_manual( values = color_values ) +
-  
-  labs( y = "Prevalence" ) +
+  labs( y = "Prevalence (%) (95% CI)" ) +
   
   theme_classic() +
   theme( axis.title.x = element_blank(),
          axis.text.x = element_text( family = "Arial", size = 11 ),
          axis.text.y = element_text( family = "Arial", size = 11 ),
          axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
          legend.title = element_blank(),
          legend.position = "bottom",
          strip.background = element_blank(),
          strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 2, "lines" ) ) +
+         panel.spacing.y = unit( 1.5, "lines" ) ) +
   
-  facet_wrap( ~ health_outcome, 
-              ncol = 2, 
+  facet_grid( rows = vars( health_outcome ),
+              switch = "y",
               scales = "free",
-              labeller = labeller( health_outcome = c( "poor_health" = "Poor self-rated health", 
-                                                       "chronic_condition" = "Chronic health condition or disability", 
-                                                       "psychological_distress" = "Recent psychological distress", 
+              labeller = labeller( health_outcome = c( "psychological_distress" = "Psychological distress", 
                                                        "suicidal_thoughts" = "Suicidal ideation", 
-                                                       "suicide_attempts" = "Suicide attempts", 
-                                                       "frequent_HED" = "Frequent HED", 
+                                                       "suicide_attempts" = "Suicide attempt", 
                                                        "cannabis_use" = "Cannabis use"
                                                        ) ) ) +
   
   ggh4x::facetted_pos_scales( y = list(
-    health_outcome == "poor_health" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.15 ), breaks = c( 0, 0.05, 0.10, 0.15 ) ),
-    health_outcome == "chronic_condition" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
     health_outcome == "psychological_distress" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
     health_outcome == "suicidal_thoughts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
     health_outcome == "suicide_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.2 ), breaks = c( 0, 0.05, 0.1, 0.15, 0.2 ) ),
-    health_outcome == "frequent_HED" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.25 ), breaks = c( 0, 0.05, 0.1, 0.15, 0.2, 0.25 ) ),
     health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ) ) )
+
+p1
+ggsave( "self_report_health_outcome.png", plot = p1, width = 5, height = 9, dpi = 600 )
 ```
 
 #### 2.2. By sex
 ##### 2.2.1. Prepare dataset for plotting
 ```{r}
-prop_cc_health_outcome_2010_by_sex <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_sex.xlsx") %>%
+prop_cc_health_outcome_2010_by_sex <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_sex.xlsx') %>%
   rename( sexual_identity = sexual_identity_2010 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2014_by_sex <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_sex.xlsx") %>%
+prop_cc_health_outcome_2014_by_sex <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_sex.xlsx') %>%
   rename( sexual_identity = sexual_identity_2014 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2021_by_sex <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_sex.xlsx") %>%
+prop_cc_health_outcome_2021_by_sex <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_sex.xlsx') %>%
   rename( sexual_identity = sexual_identity_2021 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
@@ -135,81 +130,76 @@ str( prop_cc_health_outcome_by_sex_long )
 prop_cc_health_outcome_by_sex_long$sexual_identity <- factor( prop_cc_health_outcome_by_sex_long$sexual_identity,
                                                        levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
 prop_cc_health_outcome_by_sex_long$health_outcome <- factor( prop_cc_health_outcome_by_sex_long$health_outcome,
-                                                      levels = c( "poor_health", "chronic_condition", "psychological_distress", "suicidal_thoughts", "suicide_attempts", "frequent_HED", "cannabis_use" ) )
+                                                      levels = c( "psychological_distress", "cannabis_use", "suicidal_thoughts", "suicide_attempts" ) )
 ```
 
 ##### 2.2.2. Plotting
 ```{r}
-color_values <- c( "Heterosexual" = "red", 
-                   "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "#C77CFF" )
-
+p2 <- 
 ggplot( prop_cc_health_outcome_by_sex_long %>%
           filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
-        aes( x = year, y = point_estimate, color = sexual_identity, linetype = sex, group = interaction( sexual_identity, sex ) ) ) +
+        aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
   
-  geom_line( linewidth = 0.5 ) + 
-  geom_point( shape = 17, size = 2 ) +
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) + 
 
   scale_x_discrete( expand = c( 0.05, 0 ) ) +
-  scale_y_continuous( labels = scales::percent,
-                      limits = c( 0, 0.6 ), 
-                      breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 ) ) +
+
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
   
-  scale_color_manual( values = color_values ) +
-  
-  scale_linetype_manual( values = c( "solid", "dashed" ),
-                         breaks = c( "Female", "Male" ) ) + 
-  
-  labs( y = "Prevalence" ) +
+  labs( y = "Prevalence (%) (95% CI)" ) +
   
   theme_classic() +
   theme( axis.title.x = element_blank(),
          axis.text.x = element_text( family = "Arial", size = 11 ),
          axis.text.y = element_text( family = "Arial", size = 11 ),
          axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
          legend.title = element_blank(),
          legend.position = "bottom",
          strip.background = element_blank(),
          strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 2, "lines" ) ) +
-  
-  facet_wrap( ~ health_outcome, 
-              ncol = 2, 
-              scales = "free",
-              labeller = labeller( health_outcome = c( "poor_health" = "Poor self-rated health", 
-                                                       "chronic_condition" = "Chronic health condition or disability", 
-                                                       "psychological_distress" = "Recent psychological distress", 
-                                                       "suicidal_thoughts" = "Suicidal ideation", 
-                                                       "suicide_attempts" = "Suicide attempts", 
-                                                       "frequent_HED" = "Frequent HED", 
-                                                       "cannabis_use" = "Cannabis use"
-                                                       ) ) ) +
+         panel.spacing.y = unit( 1.5, "lines" ),
+         panel.spacing.x = unit( 1.5, "lines" ) ) +
+
+  facet_grid(
+    rows = vars( health_outcome ),
+    cols = vars( sex ),
+    switch = "y",
+    scales = "free",
+    labeller = labeller( health_outcome = c( "psychological_distress" = "Psychological distress",
+                                             "suicidal_thoughts" = "Suicidal ideation",
+                                             "suicide_attempts" = "Suicide attempt",
+                                             "cannabis_use" = "Cannabis use"
+                                             ) ) ) +
   
   ggh4x::facetted_pos_scales( y = list(
-    health_outcome == "poor_health" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.15 ), breaks = c( 0, 0.05, 0.10, 0.15 ) ),
-    health_outcome == "chronic_condition" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
-    health_outcome == "psychological_distress" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
-    health_outcome == "suicidal_thoughts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ),
-    health_outcome == "suicide_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.2 ), breaks = c( 0, 0.05, 0.1, 0.15, 0.2 ) ),
-    health_outcome == "frequent_HED" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.25 ), breaks = c( 0, 0.05, 0.1, 0.15, 0.2, 0.25 ) ),
-    health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ) ) )
+    health_outcome == "psychological_distress" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.6 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ),
+    health_outcome == "suicidal_thoughts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.6 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ),
+    health_outcome == "suicide_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.6 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ) ) )
+
+p2
+ggsave( "self_report_health_outcome_by_sex.png", plot = p2, width = 8, height = 9, dpi = 600 )
 ```
 
 #### 2.3. By age
 ##### 2.3.1. Prepare dataset for plotting
 ```{r}
-prop_cc_health_outcome_2010_by_age <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_age.xlsx") %>%
+prop_cc_health_outcome_2010_by_age <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_age.xlsx') %>%
   rename( sexual_identity = sexual_identity_2010 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ),
           age_cat = ifelse( age_cat == "18-29", "16-29", age_cat ) )
 
-prop_cc_health_outcome_2014_by_age <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_age.xlsx") %>%
+prop_cc_health_outcome_2014_by_age <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_age.xlsx') %>%
   rename( sexual_identity = sexual_identity_2014 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2021_by_age <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_age.xlsx") %>%
+prop_cc_health_outcome_2021_by_age <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_age.xlsx') %>%
   rename( sexual_identity = sexual_identity_2021 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
@@ -227,195 +217,63 @@ prop_cc_health_outcome_by_age_long$sexual_identity <- factor( prop_cc_health_out
 prop_cc_health_outcome_by_age_long$age_cat <- factor( prop_cc_health_outcome_by_age_long$age_cat,
                                                              levels = c( "16-29", "30-44", "45-59", ">=60" ) )
 prop_cc_health_outcome_by_age_long$health_outcome <- factor( prop_cc_health_outcome_by_age_long$health_outcome,
-                                                             levels = c( "psychological_distress", "suicidal_thoughts", "suicidal_attempts", "depression_self_report" ) )
+                                                             levels = c( "psychological_distress", "cannabis_use", "suicidal_thoughts", "suicide_attempts" ) )
 ```
 
 ##### 2.3.2. Plotting
 ```{r}
-# among 16-44 years
-
-color_values <- c( "Heterosexual" = "red", 
-                   "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "#C77CFF" )
-
+p3 <- 
 ggplot( prop_cc_health_outcome_by_age_long %>%
-          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
-                  health_outcome != "depression_self_report",
-                  !age_cat %in% c( "45-59", ">=60" ) ),
-        aes( x = year, y = point_estimate, color = sexual_identity, linetype = age_cat, group = interaction( sexual_identity, age_cat ) ) ) +
+          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+        aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
   
-  geom_line( linewidth = 0.5 ) + 
-  geom_point( shape = 17, size = 2 ) +
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
   
-  scale_x_discrete( expand = c( 0.05, 0 ) ) +
-  scale_y_continuous( labels = scales::percent,
-                      limits = c( 0, 0.6 ), 
-                      breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 ) ) +
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) +
+
+  scale_x_discrete( expand = c( 0.1, 0 ) ) +
+
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
   
-  scale_color_manual( values = color_values ) +
-  
-  scale_linetype_manual( values = c( "solid", "dashed" ),
-                         breaks = c( "16-29", "30-44" ),
-                         labels = c( "16-29 y", "30-44 y" )
-                         ) + 
-  
-  labs( y = "Prevalence" ) +
+  labs( y = "Prevalence (%) (95% CI)" ) +
   
   theme_classic() +
   theme( axis.title.x = element_blank(),
          axis.text.x = element_text( family = "Arial", size = 11 ),
          axis.text.y = element_text( family = "Arial", size = 11 ),
          axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
          legend.title = element_blank(),
          legend.position = "bottom",
          strip.background = element_blank(),
          strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 2, "lines" ) ) +
+         panel.spacing.y = unit( 1.5, "lines" ),
+         panel.spacing.x = unit( 1.5, "lines" ) ) +
   
-  facet_wrap( ~ health_outcome, 
-              ncol = 2, 
-              scales = "free",
-              labeller = labeller( health_outcome = c( "psychological_distress" = "Recent psychological distress",
-                                                       "suicidal_thoughts" = "Suicidal thoughts (lifetime)",
-                                                       "suicidal_attempts" = "Suicide attempts (lifetime)" ) ) ) +
-  
-  ggh4x::facetted_pos_scales( y = list(
-    health_outcome == "suicidal_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.25 ), breaks = c( 0, 0.05, 0.1, 0.15, 0.2, 0.25 ) ) ) )
-```
-
-```{r}
-# among >=45 years
-
-color_values <- c( "Heterosexual" = "red", 
-                   "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "#C77CFF" )
-
-ggplot( prop_cc_health_outcome_by_age_long %>%
-          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
-                  health_outcome != "depression_self_report",
-                  !age_cat %in% c( "16-29", "30-44" ) ),
-        aes( x = year, y = point_estimate, color = sexual_identity, linetype = age_cat, group = interaction( sexual_identity, age_cat ) ) ) +
-  
-  geom_line( linewidth = 0.5 ) + 
-  geom_point( shape = 17, size = 2 ) +
-  
-  scale_x_discrete( expand = c( 0.05, 0 ) ) +
-  scale_y_continuous( labels = scales::percent,
-                      limits = c( 0, 0.4 ), 
-                      breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) ) +
-  
-  scale_color_manual( values = color_values ) +
-  
-  scale_linetype_manual( values = c( "solid", "dashed" ),
-                         breaks = c( "45-59", ">=60" ),
-                         labels = c( "45-59 y", "\u226560 y" )
-                         ) + 
-  
-  labs( y = "Prevalence" ) +
-  
-  theme_classic() +
-  theme( axis.title.x = element_blank(),
-         axis.text.x = element_text( family = "Arial", size = 11 ),
-         axis.text.y = element_text( family = "Arial", size = 11 ),
-         axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
-         legend.title = element_blank(),
-         legend.position = "bottom",
-         strip.background = element_blank(),
-         strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 2, "lines" ) ) +
-  
-  facet_wrap( ~ health_outcome, 
-              ncol = 2, 
-              scales = "free",
-              labeller = labeller( health_outcome = c( "psychological_distress" = "Recent psychological distress",
-                                                       "suicidal_thoughts" = "Suicidal thoughts (lifetime)",
-                                                       "suicidal_attempts" = "Suicide attempts (lifetime)" ) ) ) +
+  facet_grid(
+    rows = vars( health_outcome ),
+    cols = vars( age_cat ),
+    switch = "y",
+    scales = "free",
+    labeller = labeller( health_outcome = c( "psychological_distress" = "Psychological distress",
+                                             "suicidal_thoughts" = "Suicidal ideation",
+                                             "suicide_attempts" = "Suicide attempt",
+                                             "cannabis_use" = "Cannabis use"
+                                             ),
+                         age_cat = c( "16-29" = "16–29 yrsᵃ",
+                                      "30-44" = "30–44 yrs",
+                                      "45-59" = "45–59 yrs",
+                                      ">=60" = "\u2265 60 yrs" ) ) ) +
   
   ggh4x::facetted_pos_scales( y = list(
-    health_outcome == "suicidal_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.12 ), breaks = c( 0, 0.05, 0.1 ) ) ) )
-```
+    health_outcome == "psychological_distress" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.66 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ),
+    health_outcome == "suicidal_thoughts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.61 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ),
+    health_outcome == "suicide_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.31 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.63 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ) ) )
 
-#### 2.4. By country of birth
-##### 2.4.1. Prepare dataset for plotting
-```{r}
-prop_cc_health_outcome_2010_by_country_of_birth <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_country_of_birth.xlsx") %>%
-  rename( sexual_identity = sexual_identity_2010 ) %>%
-  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
-
-prop_cc_health_outcome_2014_by_country_of_birth <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_country_of_birth.xlsx") %>%
-  rename( sexual_identity = sexual_identity_2014 ) %>%
-  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
-
-prop_cc_health_outcome_2021_by_country_of_birth <- read_xlsx("/Users/guoqiang.zhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/Research Projects/Sexual Identity and Health Outcomes in Stockholm County/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_country_of_birth.xlsx") %>%
-  rename( sexual_identity = sexual_identity_2021 ) %>%
-  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
-
-prop_cc_health_outcome_by_country_of_birth <- full_join( prop_cc_health_outcome_2010_by_country_of_birth, prop_cc_health_outcome_2014_by_country_of_birth, by = c( "sexual_identity", "country_of_birth" ) ) %>%
-  full_join( prop_cc_health_outcome_2021_by_country_of_birth, by = c( "sexual_identity", "country_of_birth" ) )
-
-prop_cc_health_outcome_by_country_of_birth_long <- prop_cc_health_outcome_by_country_of_birth %>%
-  pivot_longer( cols = -c( sexual_identity, country_of_birth ),
-                names_to = c( "health_outcome", "year", ".value" ),
-                names_pattern = "(.*)_(\\d{4})_(.*)" )
-
-str( prop_cc_health_outcome_by_country_of_birth_long )
-prop_cc_health_outcome_by_country_of_birth_long$sexual_identity <- factor( prop_cc_health_outcome_by_country_of_birth_long$sexual_identity,
-                                                              levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
-prop_cc_health_outcome_by_country_of_birth_long$country_of_birth <- factor( prop_cc_health_outcome_by_country_of_birth_long$country_of_birth,
-                                                      levels = c( "Sweden", "Europe", "Outside Europe" ) )
-prop_cc_health_outcome_by_country_of_birth_long$health_outcome <- factor( prop_cc_health_outcome_by_country_of_birth_long$health_outcome,
-                                                             levels = c( "psychological_distress", "suicidal_thoughts", "suicidal_attempts", "depression_self_report" ) )
-```
-
-##### 2.4.2. Plotting
-```{r}
-color_values <- c( "Heterosexual" = "red", 
-                   "Homosexual" = "#00BFC4", 
-                   "Bisexual" = "#C77CFF" )
-
-ggplot( prop_cc_health_outcome_by_country_of_birth_long %>%
-          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ),
-                  health_outcome != "depression_self_report" ),
-        aes( x = year, y = point_estimate, color = sexual_identity, linetype = country_of_birth, group = interaction( sexual_identity, country_of_birth ) ) ) +
-  
-  geom_line( linewidth = 0.5 ) + 
-  geom_point( shape = 17, size = 2 ) +
-  
-  scale_x_discrete( expand = c( 0.05, 0 ) ) +
-  scale_y_continuous( labels = scales::percent,
-                      limits = c( 0, 0.6 ), 
-                      breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 ) ) +
-  
-  scale_color_manual( values = color_values ) +
-  
-  scale_linetype_manual( values = c( "solid", "dashed", "dotdash" ),
-                         breaks = c( "Sweden", "Europe", "Outside Europe" ),
-                         labels = c( "Sweden", "Europe", "Outside Europe" )
-  ) + 
-  
-  labs( y = "Prevalence" ) +
-  
-  theme_classic() +
-  theme( axis.title.x = element_blank(),
-         axis.text.x = element_text( family = "Arial", size = 11 ),
-         axis.text.y = element_text( family = "Arial", size = 11 ),
-         axis.title.y = element_text( family = "Arial", size = 11 ),
-         legend.text = element_text( family = "Arial", size = 10 ),
-         legend.title = element_blank(),
-         legend.position = "bottom",
-         strip.background = element_blank(),
-         strip.text = element_text( family = "Arial", size = 12 ),
-         panel.spacing = unit( 2, "lines" ) ) +
-  
-  facet_wrap( ~ health_outcome, 
-              ncol = 2, 
-              scales = "free",
-              labeller = labeller( health_outcome = c( "psychological_distress" = "Recent psychological distress",
-                                                       "suicidal_thoughts" = "Suicidal thoughts (lifetime)",
-                                                       "suicidal_attempts" = "Suicide attempts (lifetime)" ) ) ) +
-  
-  ggh4x::facetted_pos_scales( y = list(
-    health_outcome == "suicidal_attempts" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.25 ), breaks = c( 0, 0.05, 0.1, 0.15, 0.2, 0.25 ) ) ) )
+p3
+ggsave( "self_report_health_outcome_by_age.png", plot = p3, width = 10, height = 9, dpi = 600 )
 ```
