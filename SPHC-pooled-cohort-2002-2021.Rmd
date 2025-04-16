@@ -57,7 +57,7 @@ table( d_2002$sexual_identity_2021, useNA = "always" )
 
 # age
 summary( d_2002$F2alder )
-d_2002$age_2021 <- d_2002$F2alder + 19
+d_2002$age_baseline <- d_2002$F2alder
 
 # sex
 table( d_2002$kon, useNA = "always" )
@@ -72,6 +72,9 @@ d_2002$country_of_birth <- factor( ifelse( d_2002$fodelseland == "Sverige", "Swe
                                            ifelse( d_2002$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2002$country_of_birth, useNA = "always" )
+
+d_2002 <- d_2002 %>% 
+  filter( !is.na( lopnr) ) # 7,411 in SPHC-B 2002 did not participate in follow-up surveys and therefore excluded
 ```
 
 #### 2.2. SPHC-B 2006
@@ -107,7 +110,7 @@ table( d_2006$sexual_identity_2021, useNA = "always" )
 
 # age
 summary( d_2006$F6alder )
-d_2006$age_2021 <- d_2006$F6alder + 15
+d_2006$age_baseline <- d_2006$F6alder
 
 # sex
 table( d_2006$kon, useNA = "always" )
@@ -156,7 +159,7 @@ table( d_2010$sexual_identity_2021, useNA = "always" )
 
 # age
 summary( d_2010$F10alder )
-d_2010$age_2021 <- d_2010$F10alder + 11
+d_2010$age_baseline <- d_2010$F10alder
 
 # sex
 table( d_2010$kon, useNA = "always" )
@@ -196,7 +199,7 @@ table( d_2014$sexual_identity_2021, useNA = "always" )
 
 # age
 summary( d_2014$F14alder )
-d_2014$age_2021 <- d_2014$F14alder + 7
+d_2014$age_baseline <- d_2014$F14alder
 
 # sex
 table( d_2014$kon, useNA = "always" )
@@ -230,7 +233,7 @@ table( d_2021$sexual_identity_2021, useNA = "always" )
 
 # age
 summary( d_2021$F21alder )
-d_2021$age_2021 <- d_2021$F21alder
+d_2021$age_baseline <- d_2021$F21alder
 
 # sex
 table( d_2021$kon, useNA = "always" )
@@ -246,9 +249,9 @@ d_2021$country_of_birth <- factor( ifelse( d_2021$fodelseland == "Sverige", "Swe
 table( d_2021$country_of_birth, useNA = "always" )
 ```
 
-#### 2.6. Merge data across surveys
+#### 2.6. Merge and clean data
 ```{r}
-variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_2021", "sex", "country_of_birth" )
+variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_baseline", "sex", "country_of_birth" )
 
 d_2002_selected <- d_2002 %>%
   select( all_of( intersect( variable_list, names( d_2002 ) ) ) ) %>%
@@ -270,18 +273,15 @@ d_2021_selected <- d_2021 %>%
   select( all_of( intersect( variable_list, names( d_2021 ) ) ) ) %>%
   mutate( survey_year = "SPHC 2021" )
 
-d_pooled_cohort <- bind_rows(
+pre2021 <- bind_rows(
   d_2002_selected,
   d_2006_selected,
   d_2010_selected,
-  d_2014_selected,
-  d_2021_selected
+  d_2014_selected
   ) %>%
   mutate( survey_year = as.factor( survey_year ) )
 
-d_pooled_cohort <- d_pooled_cohort %>% filter( !is.na( lopnr) ) # 7,411 in SPHC-B 2002 did not participate in follow-up surveys, and therefore excluded
-
-summary( d_pooled_cohort )
+summary( pre2021 )
 
 # check for overlapping participants across SPHC-B 2002 to 2014
 # unable to check for SPHC-B 2021, because of its independent lopnr number system
@@ -300,43 +300,32 @@ length(
           ) 
   ) # two individuals participated in SPHC-B 2002, 2006, and 2014
 
-duplicates <- d_pooled_cohort %>%
-  filter(
-    survey_year %in% c( "SPHC 2002", "SPHC 2006", "SPHC 2010", "SPHC 2014" ),
-    !( survey_year == "SPHC 2002" & is.na( lopnr ) )
-    ) %>%
-  group_by( lopnr ) %>%
-  filter( n() > 1 ) %>%
-  ungroup()
+pre2021_selected <- pre2021 %>%
+  mutate( survey_year = fct_rev( survey_year ) ) %>%
+  arrange( lopnr, survey_year ) %>%
+  distinct( lopnr, .keep_all = TRUE ) # remove duplicates and retain data for the latest year
+sum( duplicated( pre2021_selected$lopnr ) )
 
-duplicates$survey_year <- as.factor( duplicates$survey_year )
-summary( duplicates )
-n_distinct( duplicates$lopnr ) # in total, 1,140 duplicate participants across SPHC 2002, 2006, and 2014
+d_pooled_cohort <- bind_rows( pre2021_selected, d_2021_selected ) %>%
+  mutate( survey_year = as.factor( survey_year ) )
+summary( d_pooled_cohort )
 
-d_pooled_cohort_cleaned <- d_pooled_cohort %>%
-  group_by( lopnr ) %>%
-  filter(
-    !( survey_year == "SPHC 2002" & any( survey_year == "SPHC 2006" ) ), 
-    !( survey_year == "SPHC 2002" & any( survey_year == "SPHC 2014" ) ),
-    !( survey_year == "SPHC 2006" & any( survey_year == "SPHC 2014" ) ) # exclude duplicate participants
-    ) %>%
-  ungroup()
-
-d_pooled_cohort_cleaned %>%
-  filter(
-    survey_year %in% c( "SPHC 2002", "SPHC 2006", "SPHC 2010", "SPHC 2014" ),
-    !( survey_year == "SPHC 2002" & is.na( lopnr ) )
-    ) %>%
-  group_by( lopnr ) %>%
-  filter( n() > 1 ) # confirm no duplicate participants
-
-d_pooled_cohort_cleaned$survey_year <- as.factor( d_pooled_cohort_cleaned$survey_year )
-summary( d_pooled_cohort_cleaned )
-
+# sexual identity
+d_pooled_cohort <- d_pooled_cohort %>%
+  mutate(
+    sexual_identity = case_when(
+      survey_year == "SPHC 2010" ~ sexual_identity_2010,
+      survey_year == "SPHC 2014" ~ sexual_identity_2014,
+      survey_year == "SPHC 2021" ~ sexual_identity_2021,
+      survey_year %in% c( "SPHC 2002", "SPHC 2006" ) ~ sexual_identity_2010
+    )
+  )
+table( d_pooled_cohort$sexual_identity, useNA = "always" )
 
 # generation
-d_2021$birth_year <- 2021 - d_2021$age_baseline
-d_2021 <- d_2021 %>%
+d_pooled_cohort$birth_year <- 2021 - d_pooled_cohort$age_2021
+summary( d_pooled_cohort$birth_year )
+d_pooled_cohort <- d_pooled_cohort %>%
   mutate( generation = case_when(
     birth_year >= 1997 & birth_year <= 2012 ~ "Generation Z (1997–2012)",
     birth_year >= 1981 & birth_year <= 1996 ~ "Millennials (1981–1996)",
@@ -346,10 +335,10 @@ d_2021 <- d_2021 %>%
     birth_year >= 1901 & birth_year <= 1927 ~ "Greatest Generation (1901–1927)"
   ) )
 
-d_2021$generation <- factor( 
-  d_2021$generation, 
+d_pooled_cohort$generation <- factor( 
+  d_pooled_cohort$generation, 
   levels = c( "Generation Z (1997–2012)", "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) )
-summary( d_2021$generation )
+summary( d_pooled_cohort$generation )
 ```
 
 #### 2.7. Follow-up period through registry
