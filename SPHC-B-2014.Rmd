@@ -1,5 +1,5 @@
 ---
-title: "Sexual identity and health outcomes in Stockholm County, SPHC 2014"
+title: "Sexual identity and health outcomes in Stockholm County, SPHC-B 2014"
 author: Willi Zhang
 email: willi.zhang@ki.se
 output: html_notebook

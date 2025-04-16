@@ -1,0 +1,498 @@
+---
+title: "Trajectory of health outcomes by sexual identity in Stockholm County"
+author: Willi Zhang
+email: willi.zhang@ki.se
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+### 1. Load Packages
+```{r}
+library(haven)
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(finalfit)
+library(lubridate)
+library(stringr)
+library(ggplot2)
+library(naniar)
+library(jomo)
+library(mitml)
+library(mitools)
+```
+
+### 2. The Stockholm Public Health Cohort
+#### 2.1. SPHC-B 2002
+```{r}
+d_2002 <- read_sas("/Volumes/LGBT Project data/sphc02_07_10_14_21.sas7bdat")
+
+summary( d_2002$lopnr ) # 7,411 missing
+
+# sexual identity in 2010
+table( d_2002$F10F103, useNA = "always" )
+d_2002$F10F103[ d_2002$F10F103 == 9 ] <- NA
+d_2002$sexual_identity_2010 <- factor( ifelse( d_2002$F10F103 == 1, "Heterosexual",
+                                                  ifelse( d_2002$F10F103 == 2, "Homosexual",
+                                                          ifelse( d_2002$F10F103 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2002$sexual_identity_2010, useNA = "always" )
+
+# sexual identity in 2014
+table( d_2002$F14F103, useNA = "always" )
+d_2002$sexual_identity_2014 <- factor( ifelse( d_2002$F14F103 == 1, "Heterosexual",
+                                                  ifelse( d_2002$F14F103 == 2, "Homosexual",
+                                                          ifelse( d_2002$F14F103 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2002$sexual_identity_2014, useNA = "always" )
+
+# sexual identity in 2021
+table( d_2002$F21F91, useNA = "always" )
+d_2002$sexual_identity_2021 <- factor( ifelse( d_2002$F21F91 == 1, "Heterosexual",
+                                                  ifelse( d_2002$F21F91 == 2, "Homosexual",
+                                                          ifelse( d_2002$F21F91 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2002$sexual_identity_2021, useNA = "always" )
+
+# age
+summary( d_2002$F2alder )
+d_2002$age_2021 <- d_2002$F2alder + 19
+
+# sex
+table( d_2002$kon, useNA = "always" )
+d_2002$sex <- factor( ifelse( d_2002$kon == 1, "Male", "Female" ),
+                      levels = c( "Male", "Female" ) )
+table( d_2002$sex, useNA = "always" )
+
+# country of birth
+table( d_2002$fodelseland, useNA = "always" )
+d_2002$fodelseland[ d_2002$fodelseland == "" ] <- NA
+d_2002$country_of_birth <- factor( ifelse( d_2002$fodelseland == "Sverige", "Sweden",
+                                           ifelse( d_2002$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
+                                   levels = c( "Sweden", "Europe", "Outside Europe" ) )
+table( d_2002$country_of_birth, useNA = "always" )
+```
+
+#### 2.2. SPHC-B 2006
+```{r}
+d_2006 <- read_sas("/Volumes/LGBT Project data/sphc06_10_14_21.sas7bdat")
+
+summary( d_2006$lopnr )
+
+# sexual identity in 2010
+table( d_2006$F10F103, useNA = "always" )
+d_2006$F10F103[ d_2006$F10F103 == 9 ] <- NA
+d_2006$sexual_identity_2010 <- factor( ifelse( d_2006$F10F103 == 1, "Heterosexual",
+                                                  ifelse( d_2006$F10F103 == 2, "Homosexual",
+                                                          ifelse( d_2006$F10F103 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2006$sexual_identity_2010, useNA = "always" )
+
+# sexual identity in 2014
+table( d_2006$F14F103, useNA = "always" )
+d_2006$sexual_identity_2014 <- factor( ifelse( d_2006$F14F103 == 1, "Heterosexual",
+                                                  ifelse( d_2006$F14F103 == 2, "Homosexual",
+                                                          ifelse( d_2006$F14F103 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2006$sexual_identity_2014, useNA = "always" )
+
+# sexual identity in 2021
+table( d_2006$F21F91, useNA = "always" )
+d_2006$sexual_identity_2021 <- factor( ifelse( d_2006$F21F91 == 1, "Heterosexual",
+                                                  ifelse( d_2006$F21F91 == 2, "Homosexual",
+                                                          ifelse( d_2006$F21F91 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2006$sexual_identity_2021, useNA = "always" )
+
+# age
+summary( d_2006$F6alder )
+d_2006$age_2021 <- d_2006$F6alder + 15
+
+# sex
+table( d_2006$kon, useNA = "always" )
+d_2006$sex <- factor( ifelse( d_2006$kon == 1, "Male", "Female" ),
+                      levels = c( "Male", "Female" ) )
+table( d_2006$sex, useNA = "always" )
+
+# country of birth
+table( d_2006$fodelseland, useNA = "always" )
+d_2006$country_of_birth <- factor( ifelse( d_2006$fodelseland == "Sverige", "Sweden",
+                                           ifelse( d_2006$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
+                                   levels = c( "Sweden", "Europe", "Outside Europe" ) )
+table( d_2006$country_of_birth, useNA = "always" )
+```
+
+#### 2.3. SPHC-B 2010
+```{r}
+load("/Volumes/LGBT Project data/d_2010.RData")
+
+summary( d_2010$lopnr )
+
+# sexual identity in 2010
+table( d_2010$F10U87G78, useNA = "always" )
+d_2010$F10U87G78[ d_2010$F10U87G78 == 9 ] <- NA
+d_2010$sexual_identity_2010 <- factor( ifelse( d_2010$F10U87G78 == 1, "Heterosexual",
+                                                  ifelse( d_2010$F10U87G78 == 2, "Homosexual",
+                                                          ifelse( d_2010$F10U87G78 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2010$sexual_identity_2010, useNA = "always" )
+
+# sexual identity in 2014
+table( d_2010$F14F103, useNA = "always" )
+d_2010$sexual_identity_2014 <- factor( ifelse( d_2010$F14F103 == 1, "Heterosexual",
+                                                  ifelse( d_2010$F14F103 == 2, "Homosexual",
+                                                          ifelse( d_2010$F14F103 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2010$sexual_identity_2014, useNA = "always" )
+
+# sexual identity in 2021
+table( d_2010$F21F91, useNA = "always" )
+d_2010$sexual_identity_2021 <- factor( ifelse( d_2010$F21F91 == 1, "Heterosexual",
+                                                  ifelse( d_2010$F21F91 == 2, "Homosexual",
+                                                          ifelse( d_2010$F21F91 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2010$sexual_identity_2021, useNA = "always" )
+
+# age
+summary( d_2010$F10alder )
+d_2010$age_2021 <- d_2010$F10alder + 11
+
+# sex
+table( d_2010$kon, useNA = "always" )
+d_2010$sex <- factor( ifelse( d_2010$kon == 1, "Male", "Female" ),
+                      levels = c( "Male", "Female" ) )
+table( d_2010$sex, useNA = "always" )
+
+# country of birth
+table( d_2010$fodelseland, useNA = "always" )
+d_2010$country_of_birth <- factor( ifelse( d_2010$fodelseland == "Sverige", "Sweden",
+                                           ifelse( d_2010$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
+                                   levels = c( "Sweden", "Europe", "Outside Europe" ) )
+table( d_2010$country_of_birth, useNA = "always" )
+```
+
+#### 2.4. SPHC-B 2014
+```{r}
+load("/Volumes/LGBT Project data/d_2014.RData")
+
+summary( d_2014$lopnr )
+
+# sexual identity in 2014
+table( d_2014$F14U90G82, useNA = "always" )
+d_2014$sexual_identity_2014 <- factor( ifelse( d_2014$F14U90G82 == 1, "Heterosexual",
+                                                  ifelse( d_2014$F14U90G82 == 2, "Homosexual",
+                                                          ifelse( d_2014$F14U90G82 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2014$sexual_identity_2014, useNA = "always" )
+
+# sexual identity in 2021
+table( d_2014$F21F91, useNA = "always" )
+d_2014$sexual_identity_2021 <- factor( ifelse( d_2014$F21F91 == 1, "Heterosexual",
+                                                  ifelse( d_2014$F21F91 == 2, "Homosexual",
+                                                          ifelse( d_2014$F21F91 == 3, "Bisexual", "Other" ) ) ),
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2014$sexual_identity_2021, useNA = "always" )
+
+# age
+summary( d_2014$F14alder )
+d_2014$age_2021 <- d_2014$F14alder + 7
+
+# sex
+table( d_2014$kon, useNA = "always" )
+d_2014$sex <- factor( ifelse( d_2014$kon == 1, "Male", "Female" ),
+                      levels = c( "Male", "Female" ) )
+table( d_2014$sex, useNA = "always" )
+
+# country of birth
+table( d_2014$fodelseland, useNA = "always" )
+d_2014$country_of_birth <- factor( ifelse( d_2014$fodelseland == "Sverige", "Sweden",
+                                           ifelse( d_2014$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
+                                   levels = c( "Sweden", "Europe", "Outside Europe" ) )
+table( d_2014$country_of_birth, useNA = "always" )
+```
+
+#### 2.5. SPHC-B 2021
+```{r}
+load("/Volumes/LGBT Project data/d_2021.RData")
+
+d_2021 <- d_2021 %>% 
+  rename( lopnr = lopnr2 )
+summary( d_2021$lopnr )
+
+# sexual identity in 2021
+table( d_2021$F21F45_Q57, useNA = "always" )
+d_2021$sexual_identity_2021 <- factor( ifelse( d_2021$F21F45_Q57 == 1, "Heterosexual", 
+                                          ifelse( d_2021$F21F45_Q57 == 2, "Homosexual",
+                                                  ifelse( d_2021$F21F45_Q57 == 3, "Bisexual", "Other" ) ) ),
+                                  levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+table( d_2021$sexual_identity_2021, useNA = "always" )
+
+# age
+summary( d_2021$F21alder )
+d_2021$age_2021 <- d_2021$F21alder
+
+# sex
+table( d_2021$kon, useNA = "always" )
+d_2021$sex <- factor( ifelse( d_2021$kon == 1, "Male", "Female" ), 
+                      levels = c( "Male", "Female" ) )
+table( d_2021$sex, useNA = "always" )
+
+# country of birth
+table( d_2021$fodelseland, useNA = "always" )
+d_2021$country_of_birth <- factor( ifelse( d_2021$fodelseland == "Sverige", "Sweden",
+                                           ifelse( d_2021$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
+                                   levels = c( "Sweden", "Europe", "Outside Europe" ) )
+table( d_2021$country_of_birth, useNA = "always" )
+```
+
+#### 2.6. Merge data across surveys
+```{r}
+variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_2021", "sex", "country_of_birth" )
+
+d_2002_selected <- d_2002 %>%
+  select( all_of( intersect( variable_list, names( d_2002 ) ) ) ) %>%
+  mutate( survey_year = "SPHC 2002" )
+
+d_2006_selected <- d_2006 %>%
+  select( all_of( intersect( variable_list, names( d_2006 ) ) ) ) %>%
+  mutate( survey_year = "SPHC 2006" )
+
+d_2010_selected <- d_2010 %>%
+  select( all_of( intersect( variable_list, names( d_2010 ) ) ) ) %>%
+  mutate( survey_year = "SPHC 2010" )
+
+d_2014_selected <- d_2014 %>%
+  select( all_of( intersect( variable_list, names( d_2014 ) ) ) ) %>%
+  mutate( survey_year = "SPHC 2014" )
+
+d_2021_selected <- d_2021 %>%
+  select( all_of( intersect( variable_list, names( d_2021 ) ) ) ) %>%
+  mutate( survey_year = "SPHC 2021" )
+
+d_pooled_cohort <- bind_rows(
+  d_2002_selected,
+  d_2006_selected,
+  d_2010_selected,
+  d_2014_selected,
+  d_2021_selected
+  ) %>%
+  mutate( survey_year = as.factor( survey_year ) )
+
+d_pooled_cohort <- d_pooled_cohort %>% filter( !is.na( lopnr) ) # 7,411 in SPHC-B 2002 did not participate in follow-up surveys, and therefore excluded
+
+summary( d_pooled_cohort )
+
+# check for overlapping participants across SPHC-B 2002 to 2014
+# unable to check for SPHC-B 2021, because of its independent lopnr number system
+length( intersect( d_2002_selected$lopnr, d_2006_selected$lopnr ) ) # 999 individuals participated in both SPHC-B 2002 and 2006
+length( intersect( d_2002_selected$lopnr, d_2010_selected$lopnr ) ) # 0
+length( intersect( d_2002_selected$lopnr, d_2014_selected$lopnr ) ) # 62
+
+length( intersect( d_2006_selected$lopnr, d_2010_selected$lopnr ) ) # 0
+length( intersect( d_2006_selected$lopnr, d_2014_selected$lopnr ) ) # 83
+
+length( intersect( d_2010_selected$lopnr, d_2014_selected$lopnr ) ) # 0
+
+length( 
+  Reduce( intersect, 
+          list( d_2002_selected$lopnr, d_2006_selected$lopnr, d_2014_selected$lopnr )
+          ) 
+  ) # two individuals participated in SPHC-B 2002, 2006, and 2014
+
+duplicates <- d_pooled_cohort %>%
+  filter(
+    survey_year %in% c( "SPHC 2002", "SPHC 2006", "SPHC 2010", "SPHC 2014" ),
+    !( survey_year == "SPHC 2002" & is.na( lopnr ) )
+    ) %>%
+  group_by( lopnr ) %>%
+  filter( n() > 1 ) %>%
+  ungroup()
+
+duplicates$survey_year <- as.factor( duplicates$survey_year )
+summary( duplicates )
+n_distinct( duplicates$lopnr ) # in total, 1,140 duplicate participants across SPHC 2002, 2006, and 2014
+
+d_pooled_cohort_cleaned <- d_pooled_cohort %>%
+  group_by( lopnr ) %>%
+  filter(
+    !( survey_year == "SPHC 2002" & any( survey_year == "SPHC 2006" ) ), 
+    !( survey_year == "SPHC 2002" & any( survey_year == "SPHC 2014" ) ),
+    !( survey_year == "SPHC 2006" & any( survey_year == "SPHC 2014" ) ) # exclude duplicate participants
+    ) %>%
+  ungroup()
+
+d_pooled_cohort_cleaned %>%
+  filter(
+    survey_year %in% c( "SPHC 2002", "SPHC 2006", "SPHC 2010", "SPHC 2014" ),
+    !( survey_year == "SPHC 2002" & is.na( lopnr ) )
+    ) %>%
+  group_by( lopnr ) %>%
+  filter( n() > 1 ) # confirm no duplicate participants
+
+d_pooled_cohort_cleaned$survey_year <- as.factor( d_pooled_cohort_cleaned$survey_year )
+summary( d_pooled_cohort_cleaned )
+
+
+# generation
+d_2021$birth_year <- 2021 - d_2021$age_baseline
+d_2021 <- d_2021 %>%
+  mutate( generation = case_when(
+    birth_year >= 1997 & birth_year <= 2012 ~ "Generation Z (1997–2012)",
+    birth_year >= 1981 & birth_year <= 1996 ~ "Millennials (1981–1996)",
+    birth_year >= 1965 & birth_year <= 1980 ~ "Generation X (1965–1980)",
+    birth_year >= 1946 & birth_year <= 1964 ~ "Baby Boomers (1946–1964)",
+    birth_year >= 1928 & birth_year <= 1945 ~ "Silent Generation (1928–1945)",
+    birth_year >= 1901 & birth_year <= 1927 ~ "Greatest Generation (1901–1927)"
+  ) )
+
+d_2021$generation <- factor( 
+  d_2021$generation, 
+  levels = c( "Generation Z (1997–2012)", "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) )
+summary( d_2021$generation )
+```
+
+#### 2.7. Follow-up period through registry
+```{r}
+# migration dates for SPHC 2002 to 2014
+migration_date_2002_2014 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/migration_all.sas7bdat') %>%
+  mutate( Posttyp = as.factor( Posttyp ) )
+summary( migration_date_2002_2014 )
+
+length( unique( migration_date_2002_2014$lopnr ) ) # 12,409 had any moving-in and/or moving-out
+length( 
+  intersect( unique( migration_date_2002_2014$lopnr ),
+                     d_pooled_cohort_cleaned[ d_pooled_cohort_cleaned$survey_year != "SPHC 2021", ]$lopnr ) )
+
+migration_date_2002_2014 <- migration_date_2002_2014 %>%
+  left_join( d_pooled_cohort_cleaned %>%
+               filter( survey_year != "SPHC 2021" & !is.na( lopnr ) ) %>%
+               select( lopnr, survey_year ),
+             by = "lopnr" )
+summary( migration_date_2002_2014 )
+
+# mortality dates for SPHC 2002 to 2014
+m <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/dates_2002_2014.sas7bdat')
+summary( m )
+length( unique( m$lopnr ) ) == nrow( m )
+length( intersect( m$lopnr, d_pooled_cohort_cleaned[ d_pooled_cohort_cleaned$survey_year != "SPHC 2021", ]$lopnr ) )
+
+mortality_date_2002_2014 <- m %>%
+  select( lopnr, death_date ) %>%
+  filter( death_date != "" ) %>%
+  mutate( death_date = as.Date( death_date, format = "%Y%m%d" ) ) %>%
+  left_join( d_pooled_cohort_cleaned %>%
+               filter( survey_year != "SPHC 2021" & !is.na( lopnr ) ) %>%
+               select( lopnr, survey_year ),
+             by = "lopnr" ) %>%
+  rename( migrationdate = death_date ) %>%
+  mutate( Posttyp = factor( "Death" ) )
+summary( mortality_date_2002_2014 ) # 8,614
+
+all_date_2002_2014 <- bind_rows(
+  migration_date_2002_2014,
+  mortality_date_2002_2014
+  )
+summary( all_date_2002_2014 )
+
+plot_data <- all_date_2002_2014 %>%
+  group_by( lopnr ) %>%
+  arrange( migrationdate ) %>%
+  mutate(
+    start_date = case_when(
+      row_number() == 1 & first( Posttyp ) == "Inv" ~ migrationdate,
+      row_number() == 1 & first( Posttyp ) %in% c( "Utv", "Death" ) ~ as.Date( "1990-01-08" ),
+      row_number() > 1 ~ migrationdate,
+      TRUE ~ NA_Date_ 
+      ),
+    
+    end_date = case_when(
+      Posttyp == "Death" ~ migrationdate,
+      
+      n() == 1 & Posttyp == "Inv" ~ as.Date( "2021-12-31" ),
+      
+      row_number() == 1 & Posttyp == "Utv" ~ migrationdate,
+      row_number() == 1 & n() > 1 ~ lead( migrationdate ) - 1,  # First row in multi-row group
+      
+      # Intermediate and last row logic
+      row_number() < n() ~ lead(migrationdate) - 1,  # Intermediate rows
+      row_number() == n() & Posttyp == "Inv" ~ as.Date("2021-12-31"),  # Last row with Inv
+      row_number() == n() & Posttyp %in% c("Utv", "Death") ~ migrationdate,
+      
+      TRUE ~ NA_Date_
+      )
+    ) %>%
+  ungroup()
+
+summary( plot_data )
+
+filtered_data <- plot_data %>%
+  group_by( lopnr ) %>%
+  arrange( migrationdate ) %>%
+  filter( !( Posttyp == "Utv" & row_number() > 1 ) ) %>%
+  ungroup()
+summary( filtered_data )
+
+subset_data <- filtered_data %>%
+  filter(lopnr %in% head(unique(lopnr), 10))
+
+ggplot(filtered_data, aes(
+  x = start_date, 
+  xend = end_date, 
+  y = as.factor(lopnr), 
+  yend = as.factor(lopnr), 
+  color = Posttyp
+)) +
+  geom_segment(size = 1.2) +
+  labs(
+    title = "Gantt Chart of Events by lopnr Faceted by Survey Year",
+    x = "Date",
+    y = "lopnr",
+    color = "Posttyp"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(), # Hide y-axis labels for clarity
+    panel.grid.major.y = element_blank(), # Remove horizontal grid lines
+    panel.grid.minor = element_blank()
+  ) 
+```
+
+```{r}
+
+
+atc <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2002_2014.sas7bdat')
+
+
+inner_join( d_2021, atc, by = "lopnr" ) %>% 
+  summarize( count = n() ) # 
+
+summary(d_2021$lopnr2)
+
+atc_2021 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2021.sas7bdat')
+summary(atc_2021$lopnr2)
+
+immigration_date <- read_sas("/Volumes/LGBT Project data/Registry-based health outcomes/first_immigration.sas7bdat")
+
+
+str( immigration_date )
+unique( nchar( immigration_date$first_immigration_date ) )
+immigration_date <- immigration_date %>%
+  mutate( first_immigration_date = ymd( first_immigration_date ) )
+summary( immigration_date )
+
+d_2010_complete_combined <- left_join( d_2010_complete, immigration_date, by = "lopnr" )
+summary( d_2010_complete_combined$first_immigration_date )
+inner_join( d_2010_complete, immigration_date, by = "lopnr" ) %>% 
+  summarize( count = n() ) # 2,500 immigrated to Sweden
+table( d_2010_complete_combined[ !is.na( d_2010_complete_combined$first_immigration_date ), ]$country_of_birth  )
+table( d_2010_complete_combined[ is.na( d_2010_complete_combined$first_immigration_date ), ]$country_of_birth, useNA = "always"  )
+
+d_2010_complete_combined <- d_2010_complete_combined %>%
+  mutate( start_date_pdr = case_when(
+    !is.na( first_immigration_date ) ~ first_immigration_date,
+    is.na( first_immigration_date) & !is.na( lopnr ) ~ ymd( "20050630" ),
+    TRUE ~ NA
+    ) )
+summary( d_2010_complete_combined$start_date_pdr )
+```
