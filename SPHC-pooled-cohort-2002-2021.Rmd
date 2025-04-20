@@ -8,6 +8,7 @@ editor_options:
 ---
 
 ### 1. Load Packages
+
 ```{r}
 library(haven)
 library(tidyr)
@@ -251,6 +252,8 @@ table( d_2021$country_of_birth, useNA = "always" )
 
 #### 2.6. Merge and clean data
 ```{r}
+### SPHC 2002 to 2014 ###
+
 variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_baseline", "sex", "country_of_birth" )
 
 d_2002_selected <- d_2002 %>%
@@ -269,10 +272,6 @@ d_2014_selected <- d_2014 %>%
   select( all_of( intersect( variable_list, names( d_2014 ) ) ) ) %>%
   mutate( survey_year = "SPHC 2014" )
 
-d_2021_selected <- d_2021 %>%
-  select( all_of( intersect( variable_list, names( d_2021 ) ) ) ) %>%
-  mutate( survey_year = "SPHC 2021" )
-
 pre2021 <- bind_rows(
   d_2002_selected,
   d_2006_selected,
@@ -288,57 +287,72 @@ summary( pre2021 )
 length( intersect( d_2002_selected$lopnr, d_2006_selected$lopnr ) ) # 999 individuals participated in both SPHC-B 2002 and 2006
 length( intersect( d_2002_selected$lopnr, d_2010_selected$lopnr ) ) # 0
 length( intersect( d_2002_selected$lopnr, d_2014_selected$lopnr ) ) # 62
-
 length( intersect( d_2006_selected$lopnr, d_2010_selected$lopnr ) ) # 0
 length( intersect( d_2006_selected$lopnr, d_2014_selected$lopnr ) ) # 83
-
 length( intersect( d_2010_selected$lopnr, d_2014_selected$lopnr ) ) # 0
-
-length( 
-  Reduce( intersect, 
-          list( d_2002_selected$lopnr, d_2006_selected$lopnr, d_2014_selected$lopnr )
-          ) 
-  ) # two individuals participated in SPHC-B 2002, 2006, and 2014
+length( Reduce( intersect, list( d_2002_selected$lopnr, d_2006_selected$lopnr, d_2014_selected$lopnr ) ) ) # two individuals participated in SPHC-B 2002, 2006, and 2014
 
 pre2021_selected <- pre2021 %>%
   mutate( survey_year = fct_rev( survey_year ) ) %>%
   arrange( lopnr, survey_year ) %>%
-  distinct( lopnr, .keep_all = TRUE ) # remove duplicates and retain data for the latest year
-sum( duplicated( pre2021_selected$lopnr ) )
+  distinct( lopnr, .keep_all = TRUE ) # remove duplicates and retain data for the latest year (N = 110,353)
+sum( duplicated( pre2021_selected$lopnr ) ) # 0
 
-d_pooled_cohort <- bind_rows( pre2021_selected, d_2021_selected ) %>%
-  mutate( survey_year = as.factor( survey_year ) )
-summary( d_pooled_cohort )
-
-# sexual identity
-d_pooled_cohort <- d_pooled_cohort %>%
+# define variables
+pre2021_selected <- pre2021_selected %>%
   mutate(
-    sexual_identity = case_when(
+    
+    # sexual identity
+    sexual_identity_baseline = case_when(
+      survey_year %in% c( "SPHC 2002", "SPHC 2006" ) ~ sexual_identity_2010,
       survey_year == "SPHC 2010" ~ sexual_identity_2010,
-      survey_year == "SPHC 2014" ~ sexual_identity_2014,
-      survey_year == "SPHC 2021" ~ sexual_identity_2021,
-      survey_year %in% c( "SPHC 2002", "SPHC 2006" ) ~ sexual_identity_2010
-    )
-  )
-table( d_pooled_cohort$sexual_identity, useNA = "always" )
+      survey_year == "SPHC 2014" ~ sexual_identity_2014 ),
+    
+    # generation
+    birth_year = as.numeric( gsub ("SPHC ", "", survey_year ) ) - age_baseline,
+    generation = factor(
+      
+      case_when(
+        birth_year >= 1997 & birth_year <= 2012 ~ "Generation Z (1997–2012)",
+        birth_year >= 1981 & birth_year <= 1996 ~ "Millennials (1981–1996)",
+        birth_year >= 1965 & birth_year <= 1980 ~ "Generation X (1965–1980)",
+        birth_year >= 1946 & birth_year <= 1964 ~ "Baby Boomers (1946–1964)",
+        birth_year >= 1928 & birth_year <= 1945 ~ "Silent Generation (1928–1945)",
+        birth_year >= 1901 & birth_year <= 1927 ~ "Greatest Generation (1901–1927)" ), 
+      
+      levels = c( "Generation Z (1997–2012)", "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) ) )
 
-# generation
-d_pooled_cohort$birth_year <- 2021 - d_pooled_cohort$age_2021
-summary( d_pooled_cohort$birth_year )
-d_pooled_cohort <- d_pooled_cohort %>%
-  mutate( generation = case_when(
-    birth_year >= 1997 & birth_year <= 2012 ~ "Generation Z (1997–2012)",
-    birth_year >= 1981 & birth_year <= 1996 ~ "Millennials (1981–1996)",
-    birth_year >= 1965 & birth_year <= 1980 ~ "Generation X (1965–1980)",
-    birth_year >= 1946 & birth_year <= 1964 ~ "Baby Boomers (1946–1964)",
-    birth_year >= 1928 & birth_year <= 1945 ~ "Silent Generation (1928–1945)",
-    birth_year >= 1901 & birth_year <= 1927 ~ "Greatest Generation (1901–1927)"
-  ) )
+table( pre2021_selected$survey_year, pre2021_selected$sexual_identity_baseline, useNA = "always" )
+summary( pre2021_selected )
+```
 
-d_pooled_cohort$generation <- factor( 
-  d_pooled_cohort$generation, 
-  levels = c( "Generation Z (1997–2012)", "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) )
-summary( d_pooled_cohort$generation )
+```{r}
+### SPHC 2021 ###
+
+variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_baseline", "sex", "country_of_birth" )
+
+d_2021_selected <- d_2021 %>%
+  select( all_of( intersect( variable_list, names( d_2021 ) ) ) ) %>%
+  rename( sexual_identity_baseline = sexual_identity_2021 ) %>%
+  mutate( 
+    
+    survey_year = "SPHC 2021",
+          
+    # generation
+    birth_year = as.numeric( gsub ("SPHC ", "", survey_year ) ) - age_baseline,
+    generation = factor(
+      
+      case_when(
+        birth_year >= 1997 & birth_year <= 2012 ~ "Generation Z (1997–2012)",
+        birth_year >= 1981 & birth_year <= 1996 ~ "Millennials (1981–1996)",
+        birth_year >= 1965 & birth_year <= 1980 ~ "Generation X (1965–1980)",
+        birth_year >= 1946 & birth_year <= 1964 ~ "Baby Boomers (1946–1964)",
+        birth_year >= 1928 & birth_year <= 1945 ~ "Silent Generation (1928–1945)",
+        birth_year >= 1901 & birth_year <= 1927 ~ "Greatest Generation (1901–1927)" ), 
+      
+      levels = c( "Generation Z (1997–2012)", "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) ) )
+
+summary( d_2021_selected ) # N = 23,066
 ```
 
 #### 2.7. Follow-up period through registry
@@ -351,7 +365,7 @@ summary( migration_date_2002_2014 )
 length( unique( migration_date_2002_2014$lopnr ) ) # 12,409 had any moving-in and/or moving-out
 length( 
   intersect( unique( migration_date_2002_2014$lopnr ),
-                     d_pooled_cohort_cleaned[ d_pooled_cohort_cleaned$survey_year != "SPHC 2021", ]$lopnr ) )
+                     pre2021_selected$lopnr ) )
 
 migration_date_2002_2014 <- migration_date_2002_2014 %>%
   left_join( d_pooled_cohort_cleaned %>%
@@ -360,7 +374,7 @@ migration_date_2002_2014 <- migration_date_2002_2014 %>%
              by = "lopnr" )
 summary( migration_date_2002_2014 )
 
-# mortality dates for SPHC 2002 to 2014
+# mortality data for SPHC 2002 to 2014
 m <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/dates_2002_2014.sas7bdat')
 summary( m )
 length( unique( m$lopnr ) ) == nrow( m )
@@ -447,21 +461,188 @@ ggplot(filtered_data, aes(
   ) 
 ```
 
+### 3. Health Outcomes
+
+#### 3.1. Use of antidepressants and anxiolytics
+
+```{r}
+### SPHC 2002 to 2014 ###
+
+atc_2002_2014 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2002_2014.sas7bdat') %>%
+  filter( !grepl( "^N05CD", ATC ) ) # include participants who had at least one dispensed prescription of N05B or N06A from 2005-06-30 to 2021-12-31
+
+# check each variable
+summary( atc_2002_2014 )
+length( unique( atc_2002_2014$lopnr ) ) # 44,963 individuals had any dispensed prescription
+length( intersect( atc_2002_2014$lopnr, pre2021_selected$lopnr ) )
+unique( atc_2002_2014$ATC )
+nrow( atc_2002_2014 %>% filter( ANTAL <= 0 & !is.na( ANTAL ) ) ) # 1,700 rows had a value of <= 0 in ANTAL
+summary( atc_2002_2014 %>% filter( !is.na( dddforp ) ) ) # earliest date of dispensed prescription is 2010-02-05
+table( atc_2002_2014$lan, useNA = "always" )
+
+atc_2002_2014 <- atc_2002_2014 %>%
+  mutate(
+    drug_class = case_when(
+      grepl( "^N06A", ATC ) ~ "N06A",
+      grepl( "^N05B", ATC ) ~ "N05B" ),
+    year = year( EDATUM ) )
+
+table( atc_2002_2014$drug_class, useNA = "always" )
+summary( atc_2002_2014$year )
+
+atc_summary_by_year <- atc_2002_2014 %>%
+  group_by( lopnr, drug_class, year ) %>%
+  summarise( prescription_count = n(), .groups = "drop" )
+
+# Define all possible combinations
+all_combinations <- expand.grid(
+  lopnr = unique(pre2021_selected$lopnr),
+  year = 2005:2014,
+  drug_class = c("N05B", "N06A")
+)
+
+# Join with person-level data
+full_data <- all_combinations %>%
+  left_join(d_pooled_cohort %>% filter( survey_year != "SPHC 2021" ), by = "lopnr") %>%
+  left_join(atc_2002_2014 %>%
+              group_by(lopnr, year, drug_class) %>%
+              summarise(prescription_count = n(), .groups = "drop"),
+            by = c("lopnr", "year", "drug_class")) %>%
+  mutate(
+    prescription_count = ifelse(is.na(prescription_count), 0, prescription_count),
+    has_prescription = ifelse(prescription_count > 0, 1, 0)
+  )
+
+prevalence_data_by_year <- d_pooled_cohort %>%
+  filter( survey_year != "SPHC 2021" ) %>%
+  left_join( atc_summary_by_year, by = "lopnr" ) %>%
+  mutate(
+    prescription_count = ifelse( is.na( prescription_count ), 0, prescription_count ),
+    has_prescription = ifelse( prescription_count > 0, 1, 0 )
+    )
+
+ggplot(
+  full_data %>% 
+    filter(!is.na(sexual_identity_baseline), !is.na(drug_class)),
+  aes(x = year, y = prescription_count, color = sexual_identity_baseline)
+) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  facet_wrap(~ drug_class, scales = "free_y") +
+  labs(
+    x = "Year", y = "Avg. Number of Prescriptions",
+    color = "Sexual Identity"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom",
+    axis.text = element_text(size = 11, family = "Arial"),
+    strip.text = element_text(size = 12, family = "Arial")
+  )
+```
+
+```{r}
+### SPHC 2021 ###
+
+atc_2021 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2021.sas7bdat') %>%
+  filter( !grepl( "^N05CD", ATC ) ) %>%
+  rename( lopnr = lopnr2 )
+  
+# check each variable
+summary( atc_2021 )
+length( unique( atc_2021$lopnr ) ) # 7,505 individuals had any dispensed prescription
+length( intersect( atc_2021$lopnr, d_2021_selected$lopnr ) )
+unique( atc_2021$ATC )
+```
+
 ```{r}
 
+atc_summary <- atc_2002_2014 %>%
+  group_by( lopnr, drug_class ) %>%
+  summarise( prescription_count = n(), .groups = "drop" )
 
-atc <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2002_2014.sas7bdat')
+prevalence_data <- pre2021_selected %>%
+  select(lopnr, age_baseline, sex, survey_year, country_of_birth) %>%
+  left_join(atc_summary, by = "lopnr") %>%
+  mutate(
+    prescription_count = ifelse(is.na(prescription_count), 0, prescription_count),
+    has_prescription = ifelse(prescription_count > 0, 1, 0)
+  )
 
 
-inner_join( d_2021, atc, by = "lopnr" ) %>% 
-  summarize( count = n() ) # 
 
-summary(d_2021$lopnr2)
+d_pdr_regitry <- d_pdr_regitry %>%
+  mutate(
+    presence_N06A = factor( if_else( grepl( "N06A", ATC ), "Yes", "No" ), levels = c( "Yes", "No" ) ),
+    presence_N05B = factor( if_else( grepl( "N05B", ATC ), "Yes", "No" ), levels = c( "Yes", "No" ) ),
+    year = year( EDATUM )
+    )
 
-atc_2021 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2021.sas7bdat')
-summary(atc_2021$lopnr2)
+summary( d_pdr_regitry )
+sum( d_pdr_regitry$dose, na.rm = TRUE )
+sum( d_pdr_regitry$ddd_N06A, na.rm = TRUE ) + sum( d_pdr_regitry$ddd_N05B, na.rm = TRUE ) # all numbers match
 
-immigration_date <- read_sas("/Volumes/LGBT Project data/Registry-based health outcomes/first_immigration.sas7bdat")
+count_ATC <- d_pdr_regitry %>%
+  group_by( lopnr, year ) %>%
+  summarise(
+    prescription_N06A = sum( presence_N06A == "Yes" ),
+    prescription_N05B = sum( presence_N05B == "Yes" ),
+    ddd_N06A = if_else( all( is.na( ddd_N06A ) ), NA, sum( ddd_N06A, na.rm = TRUE ) ),
+    ddd_N05B = if_else( all( is.na( ddd_N05B ) ), NA, sum( ddd_N05B, na.rm = TRUE ) ),
+    .groups = "drop"
+  ) # calculate no. of prescriptions and DDD per year
+
+summary( count_ATC )
+sum( count_ATC$prescription_N06A )
+sum( count_ATC$prescription_N05B )
+table( d_pdr_regitry$presence_N06A )
+table( d_pdr_regitry$presence_N05B )
+sum( count_ATC$ddd_N06A, na.rm = TRUE )
+sum( count_ATC$ddd_N05B, na.rm = TRUE )
+sum( d_pdr_regitry$ddd_N06A, na.rm = TRUE )
+sum( d_pdr_regitry$ddd_N05B, na.rm = TRUE ) # all numbers match
+
+count_ATC_wide <- count_ATC %>%
+  # transform to wide format
+  pivot_wider( 
+    names_from = year, 
+    values_from = c( prescription_N06A, prescription_N05B, ddd_N06A, ddd_N05B ),
+    names_sep = "_",
+    values_fill = 0 # NOTE: assume that among participants who HAD at least one prescription record during 2005-2021, those who did not have any prescription during a specific year did not receive a prescription during that year, i.e., assume complete follow-up during 2005-2021 through register
+    )
+n_miss( count_ATC_wide ) # 37 missing
+miss_var_summary( count_ATC_wide )
+count_ATC_wide <- count_ATC_wide %>%
+  mutate( across( starts_with( "ddd_N06A" ) | starts_with( "ddd_N05B" ), ~ ifelse( is.na(.), 100000, . ) ) )
+
+d_2010_complete_merged <- left_join( d_2010_complete, count_ATC_wide, by = "lopnr" )
+inner_join( d_2010_complete, count_ATC_wide, by = "lopnr" ) %>% 
+  summarize( count = n() ) # 12,646 matched
+
+d_2010_complete_merged_cleaned <- d_2010_complete_merged %>%
+  mutate( 
+    across( contains( c( "N06A", "N05B" ) ), 
+                  ~ ifelse( is.na( lopnr ), ., 
+                            ifelse( is.na(.), 0, . ) ) ), # NOTE: assume that among participants who did NOT have any prescription record during 2005-2021, they did not receive a prescription during the period, i.e., assume complete follow-up during 2005-2021 through register
+    
+    # create new columns
+    across(
+      starts_with( "prescription_N06A_" ),
+      ~ ifelse(. > 0, "Yes", "No" ),
+      .names = "presence_N06A_{str_sub(.col, -4)}"
+      ),
+    
+    across(
+      starts_with( "prescription_N05B_" ),
+      ~ ifelse(. > 0, "Yes", "No" ),
+      .names = "presence_N05B_{str_sub(.col, -4)}"
+      )
+    )
+
+d_2010_complete_merged_cleaned <- d_2010_complete_merged_cleaned %>%
+  mutate( across( starts_with( "ddd_N06A" ) | starts_with( "ddd_N05B" ), ~ ifelse(. == 100000, NA, .) ) )
+summary( d_2010_complete_merged_cleaned[ , c( 79:180 ) ] )
+
+# in summary, the final merged dataset assumes that all participants have complete follow-up through register from 2005 to 2021; therefore, those who do not have any prescription record are assumed not to have any prescription
 
 
 str( immigration_date )
@@ -485,3 +666,5 @@ d_2010_complete_combined <- d_2010_complete_combined %>%
     ) )
 summary( d_2010_complete_combined$start_date_pdr )
 ```
+
+
