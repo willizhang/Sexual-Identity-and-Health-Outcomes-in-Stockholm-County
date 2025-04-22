@@ -524,7 +524,7 @@ extract_fluidity_model_imp <- function( model_results, exposures, model_type ) {
 }
 
 
-##### Function to Calculate Prevalence of Self-Reported Health Outcomes #####
+##### Function to Calculate Prevalence of Health Outcomes #####
 
 # overall analysis
 calculate_svyby_proportion <- function( variables_list, design, year, group_var ) {
@@ -598,6 +598,83 @@ calculate_svyby_proportion_subgroup <- function( variables_list, design, year, g
     )
     
     results[[ var$name ]] <- svyby_result
+  }
+  
+  return( results )
+}
+
+
+##### Function to Calculate Continuous Health Outcomes #####
+
+# overall analysis
+calculate_svyby_count <- function( variables_list, design, group_var ) {
+  results <- list()
+  
+  for ( var in variables_list ) {
+    svyby_result <- svyby(
+      formula = as.formula( paste0( "~", var ) ),
+      by = as.formula( paste0( "~", group_var ) ),
+      design = subset( design, !is.na( get( var ) ) ),
+      FUN = svymean,
+      vartype = "ci"
+    ) %>% remove_rownames()
+    
+    colnames( svyby_result )[-1] <- c(
+      paste0( var, "_", "_point_estimate" ),
+      paste0( var, "_", "_lower_ci" ),
+      paste0( var, "_", "_upper_ci" )
+    )
+    
+    results[[ var ]] <- svyby_result
+  }
+  
+  return( results )
+}
+
+calculate_svyby_count_overall <- function( variables_list, design ) {
+  results <- list()
+  
+  for ( var in variables_list ) {
+    svyby_result <- svymean(
+      x = as.formula( paste0( "~", var ) ),
+      design = subset( design, !is.na( get( var ) ) )
+    )
+    
+    svyby_result <- data.frame( svyby_result[ 1 ], confint( svyby_result )[ 1 ], confint( svyby_result )[ 2 ] )
+    
+    colnames( svyby_result ) <- c(
+      paste0( var, "_", "_point_estimate" ),
+      paste0( var, "_", "_lower_ci" ),
+      paste0( var, "_", "_upper_ci" )
+    )
+    
+    results[[ var ]] <- svyby_result %>%
+      remove_rownames()
+  }
+  
+  return( results )
+}
+
+# subgroup analysis
+calculate_svyby_count_subgroup <- function( variables_list, design, group_var ) {
+  results <- list()
+  
+  for ( var in variables_list ) {
+    svyby_result <- svyby(
+      formula = as.formula( paste0( "~", var ) ),
+      by = as.formula( paste0( "~", group_var ) ),
+      design = subset( design, !is.na( get( var ) ) ),
+      FUN = svymean,
+      vartype = "ci"
+    ) %>% remove_rownames()
+    
+    colnames( svyby_result )[-c( 1, 2 ) ] <- c(
+      paste0( var, "_", "_point_estimate" ),
+      paste0( var, "_", "_lower_ci" ),
+      paste0( var, "_", "_upper_ci" )
+    )
+    
+    results[[ var ]] <- svyby_result
   }
   
   return( results )

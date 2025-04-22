@@ -387,7 +387,7 @@ d_2010_complete$cannabis_use <- factor( if_else( d_2010_complete$U31 == 1, "No",
 table( d_2010_complete$cannabis_use, useNA = "always" )
 ```
 
-##### 3.1.2. Calculate prevalence by sexual identity
+##### 3.1.2. Calculate prevalence
 ```{r}
 # create survey design
 d_2010_complete_cc <- d_2010_complete
@@ -469,13 +469,14 @@ writexl::write_xlsx( self_report_health_outcomes_2010_by_age, "prevalence_cc_sel
 atc_2002_2014 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/atc_2002_2014.sas7bdat') %>%
   filter( !grepl( "^N05CD", ATC ) ) # include participants who had at least one dispensed prescription of N05B or N06A from 2005-06-30 to 2021-12-31
 
+# check variables
 summary( atc_2002_2014 )
 length( unique( atc_2002_2014$lopnr ) ) # 44,963 individuals had any dispensed prescription
 unique( atc_2002_2014$ATC )
 length( intersect( atc_2002_2014$lopnr, d_2010_complete$lopnr ) ) # 12,646 in SPHC-B 2010
 
 atc_2010 <- atc_2002_2014 %>%
-  filter( lopnr %in% d_2010_complete$lopnr ) %>%
+  filter( lopnr %in% d_2010_complete$lopnr ) %>% # select SPHC-B 2010 participants
   select( "lopnr", "ATC", "EDATUM" ) %>%
   mutate( 
     drug_class = as.factor( 
@@ -483,52 +484,61 @@ atc_2010 <- atc_2002_2014 %>%
         grepl( "^N06A", ATC ) ~ "N06A",
         grepl( "^N05B", ATC ) ~ "N05B" ) ),
       year = year( EDATUM ) ) %>%
-  filter( year == 2010 )
+  filter( year == 2010 ) # select prescription data only in the year 2010
 
 summary( atc_2010 )
 length( unique( atc_2010$lopnr ) ) # 3,579
 
 atc_2010_summary <- atc_2010 %>%
   group_by( lopnr, drug_class ) %>%
-  summarise( 
-    prescription_count_2010 = n(), 
-    prescribed_2010 = ifelse( n() > 0, 1, 0 ),
-    .groups = "drop" )
+  summarise( prescription_count_2010 = n(), .groups = "drop" )
 
 atc_2010_summary_wide <- atc_2010_summary %>%
   pivot_wider(
     names_from = drug_class,
-    values_from = c( prescription_count_2010, prescribed_2010 ),
-    names_glue = "{.value}_{drug_class}",
-    values_fill = 0 
-  )
+    values_from = prescription_count_2010,
+    names_prefix = "prescription_count_2010_",
+    values_fill = 0
+    ) %>%
+  mutate(
+    prescribed_2010_N06A = factor( if_else( prescription_count_2010_N06A > 0, "Yes", "No" ) ),
+    prescribed_2010_N05B = factor( if_else( prescription_count_2010_N05B > 0, "Yes", "No" ) ) )
+summary( atc_2010_summary_wide )
 
 d_2010_complete_cc_linked <- d_2010_complete %>%
   left_join( atc_2010_summary_wide, by = "lopnr" ) %>%
   mutate(
-    prescription_count_2010_N06A = replace_na( prescription_count_2010_N06A, 0 ),
-    prescription_count_2010_N05B = replace_na( prescription_count_2010_N05B, 0 ),
-    prescribed_2010_N06A = factor( replace_na( prescribed_2010_N06A, 0 ), levels = c( 0, 1 ), labels = c( "No", "Yes" ) ),
-    prescribed_2010_N05B = factor( replace_na( prescribed_2010_N05B, 0 ), levels = c( 0, 1 ), labels = c( "No", "Yes" ) )
+    prescription_count_2010_N06A = if_else( !is.na( lopnr ) & is.na( prescription_count_2010_N06A ), 0, prescription_count_2010_N06A ),
+    prescription_count_2010_N05B = if_else( !is.na( lopnr ) & is.na( prescription_count_2010_N05B ), 0, prescription_count_2010_N05B ),
+    prescribed_2010_N06A = factor( if_else( !is.na( lopnr ) & is.na( prescribed_2010_N06A ), "No", prescribed_2010_N06A ) ),
+    prescribed_2010_N05B = factor( if_else( !is.na( lopnr ) & is.na( prescribed_2010_N05B ), "No", prescribed_2010_N05B ) )
     )
 
+# cross check data
 summary( d_2010_complete_cc_linked$prescription_count_2010_N06A )
+sum( d_2010_complete_cc_linked$prescription_count_2010_N06A, na.rm = TRUE )
+sum( atc_2010_summary_wide$prescription_count_2010_N06A )
 summary( d_2010_complete_cc_linked$prescription_count_2010_N05B )
-table( d_2010_complete_cc_linked$prescribed_2010_N06A )
-table( d_2010_complete_cc_linked$prescribed_2010_N05B )
-```
+sum( d_2010_complete_cc_linked$prescription_count_2010_N05B, na.rm = TRUE )
+sum( atc_2010_summary_wide$prescription_count_2010_N05B )
+table( d_2010_complete_cc_linked$prescribed_2010_N06A, useNA = "always" )
+table( atc_2010_summary_wide$prescribed_2010_N06A, useNA = "always" )
+table( d_2010_complete_cc_linked$prescribed_2010_N05B, useNA = "always" )
+table( atc_2010_summary_wide$prescribed_2010_N05B, useNA = "always" )
 
-##### 4.1.2. Calculate prevalence by sexual identity
-```{r}
+# assume complete follow-up through registry during 2010 among SPHC-B 2010 participants
+
 # create survey design
+# use calibrated weights to account for unit non-response
 survey_design_cc <- svydesign( ids = ~ 1, 
                                strata = ~ sampling_strata_region,
-                               weights = ~ design_weight,
+                               weights = ~ calibrated_weight,
                                fpc = ~ no.of.population,
-                               data = d_2010_complete_cc_linked )
+                               data = d_2010_complete_cc_linked[ !is.na( d_2010_complete_cc_linked$lopnr ), ] )
+```
 
-# the following analyses assume MCAR
-
+##### 4.1.2. Calculate prevalence
+```{r}
 variables_list <- list(
   list( variable = "prescribed_2010_N06A", condition = "Yes", name = "prescribed_2010_N06A" ),
   list( variable = "prescribed_2010_N05B", condition = "Yes", name = "prescribed_2010_N05B" )
@@ -544,5 +554,100 @@ pdr_2010 <- Reduce( function( x, y ){
   merge( x, y, by = "sexual_identity_2010" )
 }, 
 results_list )
+
+# overall sample
+results_list_overall <- calculate_svyby_proportion_overall( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010 )
+
+pdr_2010_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list_overall ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+pdr_2010_overall[ 1, 1 ] <- "Stockholm County"
+
+writexl::write_xlsx( rbind( pdr_2010, pdr_2010_overall ), "prevalence_pdr_2010.xlsx" )
+
+# by sex
+results_list_by_sex <- calculate_svyby_proportion_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010,
+  group_var = "sexual_identity_2010 + sex" )
+
+pdr_2010_by_sex <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "sex" ) )
+}, 
+results_list_by_sex )
+writexl::write_xlsx( pdr_2010_by_sex, "prevalence_pdr_2010_by_sex.xlsx" )
+
+# by age
+results_list_by_age <- calculate_svyby_proportion_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  year = 2010,
+  group_var = "sexual_identity_2010 + age_cat" )
+
+pdr_2010_by_age <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "age_cat" ) )
+}, 
+results_list_by_age )
+writexl::write_xlsx( pdr_2010_by_age, "prevalence_pdr_2010_by_age.xlsx" )
 ```
 
+##### 4.1.3. Calculate number of dispensed prescriptions
+```{r}
+variables_list <- c( "prescription_count_2010_N06A", "prescription_count_2010_N05B" )
+
+# by sexual identity
+results_list <- calculate_svyby_count( variables_list = variables_list, 
+                                       design = survey_design_cc, 
+                                       group_var = "sexual_identity_2010" )
+
+pdr_2010 <- Reduce( function( x, y ){
+  merge( x, y, by = "sexual_identity_2010" )
+}, 
+results_list )
+
+# overall sample
+results_list_overall <- calculate_svyby_count_overall( 
+  variables_list = variables_list,
+  design = survey_design_cc )
+
+pdr_2010_overall <- Reduce( function( x, y ){
+  cbind( x, y )
+}, 
+results_list_overall ) %>% 
+  as.data.frame() %>%
+  rownames_to_column( var = "sexual_identity_2010" )
+pdr_2010_overall[ 1, 1 ] <- "Stockholm County"
+
+writexl::write_xlsx( rbind( pdr_2010, pdr_2010_overall ), "count_pdr_2010.xlsx" )
+
+# by sex
+results_list_by_sex <- calculate_svyby_count_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  group_var = "sexual_identity_2010 + sex" )
+
+pdr_2010_by_sex <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "sex" ) )
+}, 
+results_list_by_sex )
+writexl::write_xlsx( pdr_2010_by_sex, "count_pdr_2010_by_sex.xlsx" )
+
+# by age
+results_list_by_age <- calculate_svyby_count_subgroup( 
+  variables_list = variables_list,
+  design = survey_design_cc,
+  group_var = "sexual_identity_2010 + age_cat" )
+
+pdr_2010_by_age <- Reduce( function( x, y ){
+  merge( x, y, by = c( "sexual_identity_2010", "age_cat" ) )
+}, 
+results_list_by_age )
+writexl::write_xlsx( pdr_2010_by_age, "count_pdr_2010_by_age.xlsx" )
+```
