@@ -12,6 +12,7 @@ editor_options:
 library(forestploter)
 library(grid)
 library(readxl)
+library(here)
 library(dplyr)
 library(tidyr)
 library(tibble)
@@ -21,19 +22,19 @@ library(naniar)
 library(ggh4x)
 ```
 
-### 2. Prevalence of Self-Reported Health Outcomes
+### 2. Self-Reported Health Outcomes
 #### 2.1. Overall population
 ##### 2.1.1. Prepare dataset for plotting
 ```{r}
-prop_cc_health_outcome_2010 <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010.xlsx') %>%
+prop_cc_health_outcome_2010 <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2010.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2010 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2014 <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014.xlsx') %>%
+prop_cc_health_outcome_2014 <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2014.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2014 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2021 <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021.xlsx') %>%
+prop_cc_health_outcome_2021 <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2021.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2021 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
@@ -100,21 +101,21 @@ ggplot( prop_cc_health_outcome_long %>%
     health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.5 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ) ) ) )
 
 p1
-ggsave( "self_report_health_outcome.png", plot = p1, width = 5, height = 9, dpi = 600 )
+ggsave( "Draft plots/self_report_health_outcome.png", plot = p1, width = 5, height = 9, dpi = 600 )
 ```
 
 #### 2.2. By sex
 ##### 2.2.1. Prepare dataset for plotting
 ```{r}
-prop_cc_health_outcome_2010_by_sex <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_sex.xlsx') %>%
+prop_cc_health_outcome_2010_by_sex <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2010_by_sex.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2010 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2014_by_sex <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_sex.xlsx') %>%
+prop_cc_health_outcome_2014_by_sex <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2014_by_sex.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2014 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2021_by_sex <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_sex.xlsx') %>%
+prop_cc_health_outcome_2021_by_sex <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2021_by_sex.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2021 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
@@ -184,22 +185,22 @@ ggplot( prop_cc_health_outcome_by_sex_long %>%
     health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.6 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ) ) )
 
 p2
-ggsave( "self_report_health_outcome_by_sex.png", plot = p2, width = 8, height = 9, dpi = 600 )
+ggsave( "Draft plots/self_report_health_outcome_by_sex.png", plot = p2, width = 8, height = 9, dpi = 600 )
 ```
 
 #### 2.3. By age
 ##### 2.3.1. Prepare dataset for plotting
 ```{r}
-prop_cc_health_outcome_2010_by_age <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2010_by_age.xlsx') %>%
+prop_cc_health_outcome_2010_by_age <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2010_by_age.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2010 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ),
           age_cat = ifelse( age_cat == "18-29", "16-29", age_cat ) )
 
-prop_cc_health_outcome_2014_by_age <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2014_by_age.xlsx') %>%
+prop_cc_health_outcome_2014_by_age <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2014_by_age.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2014 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
-prop_cc_health_outcome_2021_by_age <- read_xlsx('/Users/willizhang/Library/CloudStorage/OneDrive-KarolinskaInstitutet/Karolinska Institutet/GitHub Repo/Sexual_identity_and_health_outcomes_in_Stockholm_County/prevalence_cc_self_report_health_outcomes_2021_by_age.xlsx') %>%
+prop_cc_health_outcome_2021_by_age <- read_xlsx( here( "prevalence_cc_self_report_health_outcomes_2021_by_age.xlsx" ) ) %>%
   rename( sexual_identity = sexual_identity_2021 ) %>%
   mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
 
@@ -275,5 +276,497 @@ ggplot( prop_cc_health_outcome_by_age_long %>%
     health_outcome == "cannabis_use" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.63 ), breaks = c( 0, 0.2, 0.4, 0.6 ) ) ) )
 
 p3
-ggsave( "self_report_health_outcome_by_age.png", plot = p3, width = 10, height = 9, dpi = 600 )
+ggsave( "Draft plots/self_report_health_outcome_by_age.png", plot = p3, width = 10, height = 9, dpi = 600 )
+```
+
+### 3. Registry-Based Health Outcomes
+#### 3.1. Overall population (prevalence)
+##### 3.1.1. Prepare dataset for plotting
+```{r}
+prevalence_pdr_2010 <- read_xlsx( here( "prevalence_pdr_2010.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2010 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
+
+prevalence_pdr_2014 <- read_xlsx( here( "prevalence_pdr_2014.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2014 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+prevalence_pdr_2021 <- read_xlsx( here( "prevalence_pdr_2021.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2021 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+prevalence_pdr <- full_join( prevalence_pdr_2010, prevalence_pdr_2014, by = "sexual_identity" ) %>%
+  full_join( prevalence_pdr_2021, by = "sexual_identity" )
+
+prevalence_pdr_long <- prevalence_pdr %>%
+  pivot_longer( cols = -sexual_identity,
+                names_to = c( "year", "drug_class", ".value" ),
+                names_pattern = "prescribed_(\\d{4})_(N\\d{2}[A-Z]*)_\\1_(.*)" )
+
+str( prevalence_pdr_long )
+prevalence_pdr_long$sexual_identity <- factor( prevalence_pdr_long$sexual_identity,
+                                               levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other", "Stockholm County" ) )
+prevalence_pdr_long$drug_class <- factor( prevalence_pdr_long$drug_class,
+                                          levels = c( "N06A", "N05B" ) )
+```
+
+##### 3.1.2. Plotting
+```{r}
+p1 <- 
+  ggplot( prevalence_pdr_long %>%
+            filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+          aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
+  
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) + 
+  
+  scale_x_discrete( expand = c( 0.05, 0 ) ) +
+  
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
+  
+  labs( y = "Prevalence (%) (95% CI)" ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_blank(),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing.y = unit( 1.5, "lines" ) ) +
+  
+  facet_grid( rows = vars( drug_class ),
+              switch = "y",
+              scales = "free",
+              labeller = labeller( drug_class = c( "N06A" = "Antidepressants", 
+                                                   "N05B" = "Anxiolytics" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.2 ), breaks = c( 0, 0.1, 0.2 ) ) ) )
+
+p1
+ggsave( "Draft plots/pdr_health_outcome.png", plot = p1, width = 5, height = 7.5, dpi = 600 )
+```
+
+#### 3.2. By sex (prevalence)
+##### 3.2.1. Prepare dataset for plotting
+```{r}
+prevalence_pdr_2010_by_sex <- read_xlsx( here( "prevalence_pdr_2010_by_sex.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2010 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
+
+prevalence_pdr_2014_by_sex <- read_xlsx( here( "prevalence_pdr_2014_by_sex.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2014 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+prevalence_pdr_2021_by_sex <- read_xlsx( here( "prevalence_pdr_2021_by_sex.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2021 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+prevalence_pdr_by_sex <- full_join( prevalence_pdr_2010_by_sex, prevalence_pdr_2014_by_sex, by = c( "sexual_identity", "sex" ) ) %>%
+  full_join( prevalence_pdr_2021_by_sex, by = c( "sexual_identity", "sex" ) )
+
+prevalence_pdr_by_sex_long <- prevalence_pdr_by_sex %>%
+  pivot_longer( cols = -c( sexual_identity, sex ),
+                names_to = c( "year", "drug_class", ".value" ),
+                names_pattern = "prescribed_(\\d{4})_(N\\d{2}[A-Z]*)_\\1_(.*)" )
+
+str( prevalence_pdr_by_sex_long )
+prevalence_pdr_by_sex_long$sexual_identity <- factor( prevalence_pdr_by_sex_long$sexual_identity,
+                                                      levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+prevalence_pdr_by_sex_long$drug_class <- factor( prevalence_pdr_by_sex_long$drug_class,
+                                                 levels = c( "N06A", "N05B" ) )
+```
+
+##### 3.2.2. Plotting
+```{r}
+p2 <- 
+ggplot( prevalence_pdr_by_sex_long %>%
+          filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+        aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
+  
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) + 
+
+  scale_x_discrete( expand = c( 0.05, 0 ) ) +
+
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
+  
+  labs( y = "Prevalence (%) (95% CI)" ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_blank(),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing.y = unit( 1.5, "lines" ),
+         panel.spacing.x = unit( 1.5, "lines" ) ) +
+
+  facet_grid(
+    rows = vars( drug_class ),
+    cols = vars( sex ),
+    switch = "y",
+    scales = "free",
+    labeller = labeller( drug_class = c( "N06A" = "Antidepressants",
+                                         "N05B" = "Anxiolytics" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.3 ), breaks = c( 0, 0.1, 0.2, 0.3 ) ),
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.2 ), breaks = c( 0, 0.1, 0.2 ) ) ) )
+
+p2
+ggsave( "Draft plots/pdr_health_outcome_by_sex.png", plot = p2, width = 8, height = 9, dpi = 600 )
+```
+
+#### 3.3. By age (prevalence)
+##### 3.3.1. Prepare dataset for plotting
+```{r}
+prevalence_pdr_2010_by_age <- read_xlsx( here( "prevalence_pdr_2010_by_age.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2010 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ),
+          age_cat = ifelse( age_cat == "18-29", "16-29", age_cat ) )
+
+prevalence_pdr_2014_by_age <- read_xlsx( here( "prevalence_pdr_2014_by_age.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2014 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+prevalence_pdr_2021_by_age <- read_xlsx( here( "prevalence_pdr_2021_by_age.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2021 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+prevalence_pdr_by_age <- full_join( prevalence_pdr_2010_by_age, prevalence_pdr_2014_by_age, by = c( "sexual_identity", "age_cat" ) ) %>%
+  full_join( prevalence_pdr_2021_by_age, by = c( "sexual_identity", "age_cat" ) )
+
+prevalence_pdr_by_age_long <- prevalence_pdr_by_age %>%
+  pivot_longer( cols = -c( sexual_identity, age_cat ),
+                names_to = c( "year", "drug_class", ".value" ),
+                names_pattern = "prescribed_(\\d{4})_(N\\d{2}[A-Z]*)_\\1_(.*)" )
+
+str( prevalence_pdr_by_age_long )
+prevalence_pdr_by_age_long$sexual_identity <- factor( prevalence_pdr_by_age_long$sexual_identity,
+                                                      levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+prevalence_pdr_by_age_long$drug_class <- factor( prevalence_pdr_by_age_long$drug_class,
+                                                 levels = c( "N06A", "N05B" ) )
+prevalence_pdr_by_age_long$age_cat <- factor( prevalence_pdr_by_age_long$age_cat,
+                                              levels = c( "16-29", "30-44", "45-59", ">=60" ) )
+```
+
+##### 3.3.2. Plotting
+```{r}
+p3 <- 
+  ggplot( prevalence_pdr_by_age_long %>%
+            filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+          aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
+  
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) +
+  
+  scale_x_discrete( expand = c( 0.1, 0 ) ) +
+  
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
+  
+  labs( y = "Prevalence (%) (95% CI)" ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_blank(),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing.y = unit( 1.5, "lines" ),
+         panel.spacing.x = unit( 1.5, "lines" ) ) +
+  
+  facet_grid(
+    rows = vars( drug_class ),
+    cols = vars( age_cat ),
+    switch = "y",
+    scales = "free",
+    labeller = labeller( drug_class = c( "N06A" = "Antidepressants",
+                                         "N05B" = "Anxiolytics" ),
+                         age_cat = c( "16-29" = "16–29 yrsᵃ",
+                                      "30-44" = "30–44 yrs",
+                                      "45-59" = "45–59 yrs",
+                                      ">=60" = "\u2265 60 yrs" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N06A" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) ),
+    drug_class == "N05B" ~ scale_y_continuous( labels = scales::percent, limits = c( 0, 0.4 ), breaks = c( 0, 0.1, 0.2, 0.3, 0.4 ) ) ) )
+
+p3
+ggsave( "Draft plots/pdr_health_outcome_by_age.png", plot = p3, width = 10, height = 7, dpi = 600 )
+```
+
+#### 3.4. Overall population (count)
+##### 3.4.1. Prepare dataset for plotting
+```{r}
+count_pdr_2010 <- read_xlsx( here( "count_pdr_2010.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2010 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
+
+count_pdr_2014 <- read_xlsx( here( "count_pdr_2014.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2014 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+count_pdr_2021 <- read_xlsx( here( "count_pdr_2021.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2021 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+count_pdr <- full_join( count_pdr_2010, count_pdr_2014, by = "sexual_identity" ) %>%
+  full_join( count_pdr_2021, by = "sexual_identity" )
+
+count_pdr_long <- count_pdr %>%
+  pivot_longer( cols = -sexual_identity,
+                names_to = c( "year", "drug_class", ".value" ),
+                names_pattern = "prescription_count_(\\d{4})_(N\\d{2}[A-Z]*)__?(.*)" )
+
+str( count_pdr_long )
+count_pdr_long$sexual_identity <- factor( count_pdr_long$sexual_identity,
+                                          levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other", "Stockholm County" ) )
+count_pdr_long$drug_class <- factor( count_pdr_long$drug_class,
+                                     levels = c( "N06A", "N05B" ) )
+
+count_pdr_long <- count_pdr_long %>%
+  mutate( across( c( point_estimate, lower_ci, upper_ci ), ~ . * 100 ) )
+```
+
+##### 3.4.2. Plotting
+```{r}
+p4 <- 
+  ggplot( count_pdr_long %>%
+            filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+          aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
+  
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) + 
+  
+  scale_x_discrete( expand = c( 0.05, 0 ) ) +
+  
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
+  
+  labs( y = "Mean prescriptions per 100 individuals (95% CI)" ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_blank(),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing.y = unit( 1.5, "lines" ) ) +
+  
+  facet_grid( rows = vars( drug_class ),
+              switch = "y",
+              scales = "free",
+              labeller = labeller( drug_class = c( "N06A" = "Antidepressants", 
+                                                   "N05B" = "Anxiolytics" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 300 ), breaks = c( 0, 100, 200, 300 ) ),
+    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 150 ), breaks = c( 0, 50, 100, 150 ) ) ) )
+
+p4
+ggsave( "Draft plots/pdr_health_outcome_count.png", plot = p4, width = 5, height = 7.5, dpi = 600 )
+```
+
+#### 3.5. By sex (count)
+##### 3.5.1. Prepare dataset for plotting
+```{r}
+count_pdr_2010_by_sex <- read_xlsx( here( "count_pdr_2010_by_sex.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2010 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ) )
+
+count_pdr_2014_by_sex <- read_xlsx( here( "count_pdr_2014_by_sex.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2014 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+count_pdr_2021_by_sex <- read_xlsx( here( "count_pdr_2021_by_sex.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2021 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+count_pdr_by_sex <- full_join( count_pdr_2010_by_sex, count_pdr_2014_by_sex, by = c( "sexual_identity", "sex" ) ) %>%
+  full_join( count_pdr_2021_by_sex, by = c( "sexual_identity", "sex" ) )
+
+count_pdr_by_sex_long <- count_pdr_by_sex %>%
+  pivot_longer( cols = -c( sexual_identity, sex ),
+                names_to = c( "year", "drug_class", ".value" ),
+                names_pattern = "prescription_count_(\\d{4})_(N\\d{2}[A-Z]*)__?(.*)" )
+
+str( count_pdr_by_sex_long )
+count_pdr_by_sex_long$sexual_identity <- factor( count_pdr_by_sex_long$sexual_identity,
+                                                 levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+count_pdr_by_sex_long$drug_class <- factor( count_pdr_by_sex_long$drug_class,
+                                            levels = c( "N06A", "N05B" ) )
+
+count_pdr_by_sex_long <- count_pdr_by_sex_long %>%
+  mutate( across( c( point_estimate, lower_ci, upper_ci ), ~ . * 100 ) )
+```
+
+##### 3.5.2. Plotting
+```{r}
+p5 <- 
+  ggplot( count_pdr_by_sex_long %>%
+            filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+          aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
+  
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) + 
+  
+  scale_x_discrete( expand = c( 0.05, 0 ) ) +
+  
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
+  
+  labs( y = "Mean prescriptions per 100 individuals (95% CI)" ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_blank(),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing.y = unit( 1.5, "lines" ),
+         panel.spacing.x = unit( 1.5, "lines" ) ) +
+  
+  facet_grid(
+    rows = vars( drug_class ),
+    cols = vars( sex ),
+    switch = "y",
+    scales = "free",
+    labeller = labeller( drug_class = c( "N06A" = "Antidepressants",
+                                         "N05B" = "Anxiolytics" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 400 ), breaks = c( 0, 100, 200, 300, 400 ) ),
+    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 200 ), breaks = c( 0, 100, 200 ) ) ) )
+
+p5
+ggsave( "Draft plots/pdr_health_outcome_count_by_sex.png", plot = p5, width = 8, height = 9, dpi = 600 )
+```
+
+#### 3.6. By age (count)
+##### 3.6.1. Prepare dataset for plotting
+```{r}
+count_pdr_2010_by_age <- read_xlsx( here( "count_pdr_2010_by_age.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2010 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "Uncertain", "Other", sexual_identity ),
+          age_cat = ifelse( age_cat == "18-29", "16-29", age_cat ) )
+
+count_pdr_2014_by_age <- read_xlsx( here( "count_pdr_2014_by_age.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2014 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+count_pdr_2021_by_age <- read_xlsx( here( "count_pdr_2021_by_age.xlsx" ) ) %>%
+  rename( sexual_identity = sexual_identity_2021 ) %>%
+  mutate( sexual_identity = ifelse( sexual_identity == "None of the above", "Other", sexual_identity ) )
+
+count_pdr_by_age <- full_join( count_pdr_2010_by_age, count_pdr_2014_by_age, by = c( "sexual_identity", "age_cat" ) ) %>%
+  full_join( count_pdr_2021_by_age, by = c( "sexual_identity", "age_cat" ) )
+
+count_pdr_by_age_long <- count_pdr_by_age %>%
+  pivot_longer( cols = -c( sexual_identity, age_cat ),
+                names_to = c( "year", "drug_class", ".value" ),
+                names_pattern = "prescription_count_(\\d{4})_(N\\d{2}[A-Z]*)__?(.*)" )
+
+str( count_pdr_by_age_long )
+count_pdr_by_age_long$sexual_identity <- factor( count_pdr_by_age_long$sexual_identity,
+                                                 levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
+count_pdr_by_age_long$drug_class <- factor( count_pdr_by_age_long$drug_class,
+                                            levels = c( "N06A", "N05B" ) )
+count_pdr_by_age_long$age_cat <- factor( count_pdr_by_age_long$age_cat,
+                                         levels = c( "16-29", "30-44", "45-59", ">=60" ) )
+
+count_pdr_by_age_long <- count_pdr_by_age_long %>%
+  mutate( across( c( point_estimate, lower_ci, upper_ci ), ~ . * 100 ) )
+```
+
+##### 3.6.2. Plotting
+```{r}
+p6 <- 
+  ggplot( count_pdr_by_age_long %>%
+            filter( sexual_identity %in% c( "Heterosexual", "Homosexual", "Bisexual" ) ), 
+          aes( x = year, y = point_estimate, color = sexual_identity, group = sexual_identity ) ) +
+  
+  geom_line( linewidth = 0.6 ) + 
+  geom_point( shape = 17, size = 3 ) +
+  
+  geom_errorbar( aes( ymin = lower_ci, ymax = upper_ci ), width = 0.05 ) +
+  
+  scale_x_discrete( expand = c( 0.1, 0 ) ) +
+  
+  scale_color_manual( values = c( "#C77CFF", "#00BFC4", "#F8766D" ),
+                      breaks = c( "Bisexual", "Homosexual", "Heterosexual" ),
+                      guide = guide_legend( nrow = 1 ) ) +
+  
+  labs( y = "Mean prescriptions per 100 individuals (95% CI)" ) +
+  
+  theme_classic() +
+  theme( axis.title.x = element_blank(),
+         axis.text.x = element_text( family = "Arial", size = 11 ),
+         axis.text.y = element_text( family = "Arial", size = 11 ),
+         axis.title.y = element_text( family = "Arial", size = 11 ),
+         legend.text = element_text( family = "Arial", size = 11 ),
+         legend.title = element_blank(),
+         legend.position = "bottom",
+         strip.background = element_blank(),
+         strip.text = element_text( family = "Arial", size = 12 ),
+         panel.spacing.y = unit( 1.5, "lines" ),
+         panel.spacing.x = unit( 1.5, "lines" ) ) +
+  
+  facet_grid(
+    rows = vars( drug_class ),
+    cols = vars( age_cat ),
+    switch = "y",
+    scales = "free",
+    labeller = labeller( drug_class = c( "N06A" = "Antidepressants",
+                                         "N05B" = "Anxiolytics" ),
+                         age_cat = c( "16-29" = "16–29 yrsᵃ",
+                                      "30-44" = "30–44 yrs",
+                                      "45-59" = "45–59 yrs",
+                                      ">=60" = "\u2265 60 yrs" ) ) ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    drug_class == "N06A" ~ scale_y_continuous( limits = c( 0, 400 ), breaks = c( 0, 100, 200, 300, 400 ) ),
+    drug_class == "N05B" ~ scale_y_continuous( limits = c( 0, 200 ), breaks = c( 0, 100, 200 ) ) ) )
+
+p6
+ggsave( "Draft plots/pdr_health_outcome_count_by_age.png", plot = p6, width = 10, height = 7, dpi = 600 )
 ```
