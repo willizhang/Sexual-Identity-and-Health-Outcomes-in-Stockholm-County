@@ -8,7 +8,6 @@ editor_options:
 ---
 
 ### 1. Load Packages
-
 ```{r}
 library(haven)
 library(tidyr)
@@ -24,9 +23,10 @@ library(mitml)
 library(mitools)
 ```
 
-### 2. The Stockholm Public Health Cohort
-#### 2.1. SPHC-B 2002
+### 2. The Stockholm Public Health Cohort, 2002-2021
 ```{r}
+### SPHC-B 2002 ### 
+
 d_2002 <- read_sas("/Volumes/LGBT Project data/sphc02_07_10_14_21.sas7bdat")
 
 summary( d_2002$lopnr ) # 7,411 missing
@@ -76,10 +76,10 @@ table( d_2002$country_of_birth, useNA = "always" )
 
 d_2002 <- d_2002 %>% 
   filter( !is.na( lopnr) ) # 7,411 in SPHC-B 2002 did not participate in follow-up surveys and therefore excluded
-```
 
-#### 2.2. SPHC-B 2006
-```{r}
+
+### SPHC-B 2006 ###
+
 d_2006 <- read_sas("/Volumes/LGBT Project data/sphc06_10_14_21.sas7bdat")
 
 summary( d_2006$lopnr )
@@ -125,10 +125,10 @@ d_2006$country_of_birth <- factor( ifelse( d_2006$fodelseland == "Sverige", "Swe
                                            ifelse( d_2006$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2006$country_of_birth, useNA = "always" )
-```
 
-#### 2.3. SPHC-B 2010
-```{r}
+
+### SPHC-B 2010 ###
+
 load("/Volumes/LGBT Project data/d_2010.RData")
 
 summary( d_2010$lopnr )
@@ -174,10 +174,10 @@ d_2010$country_of_birth <- factor( ifelse( d_2010$fodelseland == "Sverige", "Swe
                                            ifelse( d_2010$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2010$country_of_birth, useNA = "always" )
-```
 
-#### 2.4. SPHC-B 2014
-```{r}
+
+### SPHC-B 2014 ###
+
 load("/Volumes/LGBT Project data/d_2014.RData")
 
 summary( d_2014$lopnr )
@@ -214,10 +214,10 @@ d_2014$country_of_birth <- factor( ifelse( d_2014$fodelseland == "Sverige", "Swe
                                            ifelse( d_2014$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2014$country_of_birth, useNA = "always" )
-```
 
-#### 2.5. SPHC-B 2021
-```{r}
+
+### SPHC-B 2021 ###
+
 load("/Volumes/LGBT Project data/d_2021.RData")
 
 d_2021 <- d_2021 %>% 
@@ -250,7 +250,7 @@ d_2021$country_of_birth <- factor( ifelse( d_2021$fodelseland == "Sverige", "Swe
 table( d_2021$country_of_birth, useNA = "always" )
 ```
 
-#### 2.6. Merge and clean data
+### 3. Merge & Prepare Data
 ```{r}
 ### SPHC 2002 to 2014 ###
 
@@ -324,9 +324,8 @@ pre2021_selected <- pre2021_selected %>%
 
 table( pre2021_selected$survey_year, pre2021_selected$sexual_identity_baseline, useNA = "always" )
 summary( pre2021_selected )
-```
 
-```{r}
+
 ### SPHC 2021 ###
 
 variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_baseline", "sex", "country_of_birth" )
@@ -355,30 +354,198 @@ d_2021_selected <- d_2021 %>%
 summary( d_2021_selected ) # N = 23,066
 ```
 
-#### 2.7. Follow-up period through registry
+### 4. Determine Follow-Up Period Through Registry
 ```{r}
-# migration dates for SPHC 2002 to 2014
-migration_date_2002_2014 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/migration_all.sas7bdat') %>%
-  mutate( Posttyp = as.factor( Posttyp ) )
-summary( migration_date_2002_2014 )
+### SPHC 2002 to 2014 ###
 
-length( unique( migration_date_2002_2014$lopnr ) ) # 12,409 had any moving-in and/or moving-out
-length( 
-  intersect( unique( migration_date_2002_2014$lopnr ),
-                     pre2021_selected$lopnr ) )
+# all migration dates
+migration_date_2002_2014 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/migration_all.sas7bdat')
+summary( migration_date_2002_2014 )
+table( migration_date_2002_2014$Posttyp, useNA = "always" )
 
 migration_date_2002_2014 <- migration_date_2002_2014 %>%
-  left_join( d_pooled_cohort_cleaned %>%
-               filter( survey_year != "SPHC 2021" & !is.na( lopnr ) ) %>%
-               select( lopnr, survey_year ),
-             by = "lopnr" )
+  rename( date = migrationdate, event_type = Posttyp ) %>%
+  mutate( event_type = as.factor( recode( event_type,
+                                          "Inv" = "move-in",
+                                          "Utv" = "move-out" ) ) )
 summary( migration_date_2002_2014 )
+length( unique( migration_date_2002_2014$lopnr ) ) # 12,409 had any moving-in and/or moving-out between 1990 and 2021
+length( intersect( unique( migration_date_2002_2014$lopnr ), pre2021_selected$lopnr ) ) # 12,409
 
-# mortality data for SPHC 2002 to 2014
-m <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/dates_2002_2014.sas7bdat')
-summary( m )
-length( unique( m$lopnr ) ) == nrow( m )
-length( intersect( m$lopnr, d_pooled_cohort_cleaned[ d_pooled_cohort_cleaned$survey_year != "SPHC 2021", ]$lopnr ) )
+nrow(
+  migration_date_2002_2014 %>%
+    arrange( lopnr, date ) %>%              
+    group_by( lopnr ) %>%                      
+    slice( 1 ) %>%                            
+    ungroup() %>%
+    filter( event_type == "move-in" ) ) # 8,129 had move-in as the first event between 1990 and 2021
+
+nrow(
+  migration_date_2002_2014 %>%
+    arrange( lopnr, date ) %>%
+    group_by( lopnr ) %>%
+    slice_tail( n = 1 ) %>%
+    ungroup() %>%
+    filter( event_type == "move-out" ) ) # 1,578 had move-out as the last event
+
+# all death dates
+date_2002_2014 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/dates_2002_2014.sas7bdat')
+summary( date_2002_2014 )
+length( unique( date_2002_2014$lopnr ) ) # 15,117
+length( unique( date_2002_2014$lopnr ) ) == nrow( date_2002_2014 ) # TRUE
+length( intersect( unique( date_2002_2014$lopnr ), pre2021_selected$lopnr ) ) # 15,117
+
+date_2002_2014 %>%
+  filter( death_date != "" ) %>%
+  mutate( lengths = nchar( death_date ) ) %>%
+  count( lengths )
+
+death_date_2002_2014 <- date_2002_2014 %>%
+  filter( death_date != "" ) %>%
+  select( "lopnr", "death_date" ) %>%
+  mutate( death_date = as.Date( death_date, format = "%Y%m%d" ),
+          event_type = "death" ) %>%
+  rename( date = death_date )
+summary( death_date_2002_2014 )
+length( unique( death_date_2002_2014$lopnr ) ) # 8,614
+length( unique( death_date_2002_2014$lopnr ) ) == nrow( death_date_2002_2014 ) # TRUE
+length( intersect( unique( death_date_2002_2014$lopnr ), pre2021_selected$lopnr ) ) # 8,614
+
+# merge migration dates and death dates
+dates_all_2002_2014 <- bind_rows( migration_date_2002_2014, death_date_2002_2014 ) %>%
+  arrange( lopnr, date )
+summary( dates_all_2002_2014 )
+length( unique( dates_all_2002_2014$lopnr ) ) # 20,831
+length( intersect( unique( dates_all_2002_2014$lopnr ), pre2021_selected$lopnr ) ) # 20,831
+
+dates_all_2002_2014 <- dates_all_2002_2014 %>%
+  left_join( pre2021_selected %>% select( lopnr, survey_year ), by = "lopnr" ) %>%
+  mutate( event_type = factor( event_type, levels = c( "move-in", "move-out", "death" ) ),
+          survey_year = fct_rev( survey_year ) )
+summary( dates_all_2002_2014 )
+
+dates_all_2002_2014 <- dates_all_2002_2014 %>%
+  group_by( survey_year ) %>%
+  mutate( individual_id = dense_rank( lopnr ) ) %>% # generate continuous pseudo ID number
+  ungroup()
+summary( dates_all_2002_2014$individual_id )
+
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$lopnr ) ) # 5,503 in SPHC 2002
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$individual_id )
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$lopnr ) ) # 6,938 in SPHC 2006
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$individual_id )
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$lopnr ) ) # 5,208 in SPHC 2010
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$individual_id )
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$lopnr ) ) # 3,182 in SPHC 2014
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$individual_id )
+
+# check if there are duplicate events
+id_with_duplicate_events <- dates_all_2002_2014 %>%
+  arrange( lopnr, date ) %>%
+  group_by( lopnr ) %>%
+  mutate(
+    next_event = lead( event_type ),
+    same_as_next = event_type == next_event ) %>%
+  filter( same_as_next == TRUE ) %>%
+  pull( lopnr ) %>%
+  unique() # 6
+
+View(
+  dates_all_2002_2014 %>%
+  filter( lopnr %in% id_with_duplicate_events ) %>%
+  arrange( lopnr, date ) 
+  )
+
+# check if there is any event after death
+ids_with_death <- dates_all_2002_2014 %>%
+  filter( event_type == "death" ) %>%
+  pull( lopnr ) %>%
+  unique()
+
+dates_all_2002_2014 %>%
+  filter( lopnr %in% ids_with_death ) %>%
+  arrange( lopnr, date ) %>%
+  group_by( lopnr ) %>%
+  mutate( death_date = min( date[ event_type == "death" ] ) ) %>%
+  ungroup() %>%
+  filter( date > death_date ) # 0
+
+
+# plotting
+sampling_lines <- data.frame(
+  survey_year = c( "SPHC 2002", "SPHC 2006", "SPHC 2010", "SPHC 2014" ),
+  x = as.Date( c( "2002-10-08", "2006-08-09", "2009-12-31", "2014-08-31" ) ),
+  yend = c( 5503 + 40, 6938 + 40, 5208 + 40, 3182 + 40 ),
+  label = c( "", "", "", "" )
+  )
+
+p_follow_up_2002_2014 <- 
+  ggplot( dates_all_2002_2014,
+          aes( x = date, y = individual_id, color = event_type ) ) +
+  
+  geom_point( size = 1.5 ) +
+  
+  geom_segment(
+    data = sampling_lines,
+    aes( x = x, xend = x, y = -Inf, yend = yend ),
+    inherit.aes = FALSE,
+    linetype = "dashed",
+    color = "grey20",
+    linewidth = 0.5
+    ) +
+  
+  scale_color_manual(
+    values = c( "move-in" = "green", "move-out" = "blue", "death" = "red" ),
+    labels = c( "move-in" = "Move to Sweden", "move-out" = "Move outside Sweden", "death" = "Death" ) ) +
+
+  scale_x_date(
+    limits = as.Date( c( "1990-01-01", NA ) ),
+    breaks = seq( as.Date( "1990-01-01" ), as.Date( "2022-01-01" ), by = "2 years" ),
+    date_labels = "%Y",
+    expand = c( 0.02, 0 ) ) +
+  
+  labs( x = "Calendar Year", y = "Individual Pseudo ID Number" ) +
+  
+  theme_classic() +
+  theme(
+    axis.text.x = element_text( angle = 45, hjust = 1, family = "Arial", size = 11 ),
+    axis.text.y = element_text( family = "Arial", size = 11 ),
+    axis.title = element_text( family = "Arial", size = 12 ),
+    axis.line.y = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text( family = "Arial", size = 12, margin = margin( b = 5 ) ),
+    panel.spacing = unit( 1.5, "lines" ),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text( family = "Arial", size = 11 ) ) +
+  
+  facet_wrap( ~ survey_year,
+              scales = "free",
+              labeller = labeller(
+                survey_year = c(
+                  "SPHC 2002" = "SPHC 2002 (N = 5,503)",
+                  "SPHC 2006" = "SPHC 2006 (N = 6,938)",
+                  "SPHC 2010" = "SPHC 2010 (N = 5,208)",
+                  "SPHC 2014" = "SPHC 2014 (N = 3,182)" ) ) 
+              ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    survey_year == "SPHC 2002" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000 ) ),
+    survey_year == "SPHC 2006" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000, 7000 ) ),
+    survey_year == "SPHC 2010" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000 ) ),
+    survey_year == "SPHC 2014" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 2000, 3000 ) ) ) )
+
+p_follow_up_2002_2014
+ggsave( "Draft plots/registry_follow_up_2002_2014.png", plot = p_follow_up_2002_2014, width = 15, height = 9, dpi = 600 )
+
+
+
+
+
+person_time_2010 <- calculate_person_time( dates_all, "2009-12-31", "2010-12-31" )  
+sum( person_time_2010$duration_years )
+
+
 
 mortality_date_2002_2014 <- m %>%
   select( lopnr, death_date ) %>%
@@ -461,14 +628,12 @@ ggplot(filtered_data, aes(
   ) 
 ```
 
-### 3. Health Outcomes
-
-#### 3.1. Use of antidepressants and anxiolytics
-
+### 5. Health Outcomes
+#### 5.1. Use of antidepressants and anxiolytics
 ```{r}
 ### SPHC 2002 to 2014 ###
 
-atc_2002_2014 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2002_2014.sas7bdat') %>%
+atc_2002_2014 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/atc_2002_2014.sas7bdat') %>%
   filter( !grepl( "^N05CD", ATC ) ) # include participants who had at least one dispensed prescription of N05B or N06A from 2005-06-30 to 2021-12-31
 
 # check each variable
@@ -543,7 +708,7 @@ ggplot(
 ```{r}
 ### SPHC 2021 ###
 
-atc_2021 <- read_sas('/Volumes/LGBT Project data/Registry-based health outcomes/atc_2021.sas7bdat') %>%
+atc_2021 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/atc_2021.sas7bdat') %>%
   filter( !grepl( "^N05CD", ATC ) ) %>%
   rename( lopnr = lopnr2 )
   
