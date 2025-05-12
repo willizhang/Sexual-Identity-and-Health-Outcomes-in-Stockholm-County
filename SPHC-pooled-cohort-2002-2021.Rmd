@@ -56,9 +56,10 @@ d_2002$sexual_identity_2021 <- factor( ifelse( d_2002$F21F91 == 1, "Heterosexual
                                           levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
 table( d_2002$sexual_identity_2021, useNA = "always" )
 
-# age
+# birth year
 summary( d_2002$F2alder )
-d_2002$age_baseline <- d_2002$F2alder
+d_2002$birth_year <- 2002 - d_2002$F2alder
+summary( d_2002$birth_year )
 
 # sex
 table( d_2002$kon, useNA = "always" )
@@ -76,6 +77,9 @@ table( d_2002$country_of_birth, useNA = "always" )
 
 d_2002 <- d_2002 %>% 
   filter( !is.na( lopnr) ) # 7,411 in SPHC-B 2002 did not participate in follow-up surveys and therefore excluded
+
+variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "birth_year", "sex", "country_of_birth" )
+summary( d_2002 %>% select( all_of( variable_list ) ) )
 
 
 ### SPHC-B 2006 ###
@@ -109,9 +113,10 @@ d_2006$sexual_identity_2021 <- factor( ifelse( d_2006$F21F91 == 1, "Heterosexual
                                           levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
 table( d_2006$sexual_identity_2021, useNA = "always" )
 
-# age
+# birth year
 summary( d_2006$F6alder )
-d_2006$age_baseline <- d_2006$F6alder
+d_2006$birth_year <- 2006 - d_2006$F6alder
+summary( d_2006$birth_year )
 
 # sex
 table( d_2006$kon, useNA = "always" )
@@ -125,6 +130,8 @@ d_2006$country_of_birth <- factor( ifelse( d_2006$fodelseland == "Sverige", "Swe
                                            ifelse( d_2006$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2006$country_of_birth, useNA = "always" )
+
+summary( d_2006 %>% select( all_of( variable_list ) ) )
 
 
 ### SPHC-B 2010 ###
@@ -158,9 +165,10 @@ d_2010$sexual_identity_2021 <- factor( ifelse( d_2010$F21F91 == 1, "Heterosexual
                                           levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
 table( d_2010$sexual_identity_2021, useNA = "always" )
 
-# age
+# birth year
 summary( d_2010$F10alder )
-d_2010$age_baseline <- d_2010$F10alder
+d_2010$birth_year <- 2010 - d_2010$F10alder
+summary( d_2010$birth_year )
 
 # sex
 table( d_2010$kon, useNA = "always" )
@@ -174,6 +182,8 @@ d_2010$country_of_birth <- factor( ifelse( d_2010$fodelseland == "Sverige", "Swe
                                            ifelse( d_2010$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2010$country_of_birth, useNA = "always" )
+
+summary( d_2010 %>% select( all_of( variable_list ) ) )
 
 
 ### SPHC-B 2014 ###
@@ -198,9 +208,10 @@ d_2014$sexual_identity_2021 <- factor( ifelse( d_2014$F21F91 == 1, "Heterosexual
                                           levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
 table( d_2014$sexual_identity_2021, useNA = "always" )
 
-# age
+# birth year
 summary( d_2014$F14alder )
-d_2014$age_baseline <- d_2014$F14alder
+d_2014$birth_year <- 2014 - d_2014$F14alder
+summary( d_2014$birth_year )
 
 # sex
 table( d_2014$kon, useNA = "always" )
@@ -214,6 +225,8 @@ d_2014$country_of_birth <- factor( ifelse( d_2014$fodelseland == "Sverige", "Swe
                                            ifelse( d_2014$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2014$country_of_birth, useNA = "always" )
+
+summary( d_2014 %>% select( any_of( variable_list ) ) )
 
 
 ### SPHC-B 2021 ###
@@ -232,9 +245,10 @@ d_2021$sexual_identity_2021 <- factor( ifelse( d_2021$F21F45_Q57 == 1, "Heterose
                                   levels = c( "Heterosexual", "Homosexual", "Bisexual", "Other" ) )
 table( d_2021$sexual_identity_2021, useNA = "always" )
 
-# age
+# birth year
 summary( d_2021$F21alder )
-d_2021$age_baseline <- d_2021$F21alder
+d_2021$birth_year <- 2021 - d_2021$F21alder
+summary( d_2021$birth_year )
 
 # sex
 table( d_2021$kon, useNA = "always" )
@@ -248,36 +262,37 @@ d_2021$country_of_birth <- factor( ifelse( d_2021$fodelseland == "Sverige", "Swe
                                            ifelse( d_2021$fodelseland == "Europa", "Europe", "Outside Europe" ) ),
                                    levels = c( "Sweden", "Europe", "Outside Europe" ) )
 table( d_2021$country_of_birth, useNA = "always" )
+
+summary( d_2021 %>% select( any_of( variable_list ) ) )
 ```
 
 ### 3. Merge & Prepare Data
 ```{r}
 ### SPHC 2002 to 2014 ###
 
-variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_baseline", "sex", "country_of_birth" )
+variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "birth_year", "sex", "country_of_birth" )
 
 d_2002_selected <- d_2002 %>%
-  select( all_of( intersect( variable_list, names( d_2002 ) ) ) ) %>%
+  select( any_of( variable_list ) ) %>%
   mutate( survey_year = "SPHC 2002" )
 
 d_2006_selected <- d_2006 %>%
-  select( all_of( intersect( variable_list, names( d_2006 ) ) ) ) %>%
+  select( any_of( variable_list ) ) %>%
   mutate( survey_year = "SPHC 2006" )
 
 d_2010_selected <- d_2010 %>%
-  select( all_of( intersect( variable_list, names( d_2010 ) ) ) ) %>%
+  select( any_of( variable_list ) ) %>%
   mutate( survey_year = "SPHC 2010" )
 
 d_2014_selected <- d_2014 %>%
-  select( all_of( intersect( variable_list, names( d_2014 ) ) ) ) %>%
+  select( any_of( variable_list ) ) %>%
   mutate( survey_year = "SPHC 2014" )
 
 pre2021 <- bind_rows(
   d_2002_selected,
   d_2006_selected,
   d_2010_selected,
-  d_2014_selected
-  ) %>%
+  d_2014_selected ) %>%
   mutate( survey_year = as.factor( survey_year ) )
 
 summary( pre2021 )
@@ -295,8 +310,10 @@ length( Reduce( intersect, list( d_2002_selected$lopnr, d_2006_selected$lopnr, d
 pre2021_selected <- pre2021 %>%
   mutate( survey_year = fct_rev( survey_year ) ) %>%
   arrange( lopnr, survey_year ) %>%
-  distinct( lopnr, .keep_all = TRUE ) # remove duplicates and retain data for the latest year (N = 110,353)
+  distinct( lopnr, .keep_all = TRUE ) # remove duplicates and retain data for the latest year
 sum( duplicated( pre2021_selected$lopnr ) ) # 0
+nrow( pre2021_selected ) # 110,353
+summary( pre2021_selected )
 
 # define variables
 pre2021_selected <- pre2021_selected %>%
@@ -309,7 +326,6 @@ pre2021_selected <- pre2021_selected %>%
       survey_year == "SPHC 2014" ~ sexual_identity_2014 ),
     
     # generation
-    birth_year = as.numeric( gsub ("SPHC ", "", survey_year ) ) - age_baseline,
     generation = factor(
       
       case_when(
@@ -328,17 +344,14 @@ summary( pre2021_selected )
 
 ### SPHC 2021 ###
 
-variable_list <- c( "lopnr", "sexual_identity_2010", "sexual_identity_2014", "sexual_identity_2021", "age_baseline", "sex", "country_of_birth" )
-
 d_2021_selected <- d_2021 %>%
-  select( all_of( intersect( variable_list, names( d_2021 ) ) ) ) %>%
+  select( any_of( variable_list ) ) %>%
   rename( sexual_identity_baseline = sexual_identity_2021 ) %>%
   mutate( 
     
     survey_year = "SPHC 2021",
           
     # generation
-    birth_year = as.numeric( gsub ("SPHC ", "", survey_year ) ) - age_baseline,
     generation = factor(
       
       case_when(
@@ -351,7 +364,10 @@ d_2021_selected <- d_2021 %>%
       
       levels = c( "Generation Z (1997–2012)", "Millennials (1981–1996)", "Generation X (1965–1980)", "Baby Boomers (1946–1964)", "Silent Generation (1928–1945)", "Greatest Generation (1901–1927)" ) ) )
 
-summary( d_2021_selected ) # N = 23,066
+summary( d_2021_selected )
+sum( duplicated( d_2021_selected$lopnr ) ) # 0
+table( d_2021_selected$sexual_identity_baseline, useNA = "always" )
+nrow( d_2021_selected ) # 23,066
 ```
 
 ### 4. Determine Follow-Up Period Through Registry
@@ -419,25 +435,11 @@ length( unique( dates_all_2002_2014$lopnr ) ) # 20,831
 length( intersect( unique( dates_all_2002_2014$lopnr ), pre2021_selected$lopnr ) ) # 20,831
 
 dates_all_2002_2014 <- dates_all_2002_2014 %>%
-  left_join( pre2021_selected %>% select( lopnr, survey_year ), by = "lopnr" ) %>%
+  left_join( pre2021_selected %>% select( lopnr, survey_year, birth_year ), by = "lopnr" ) %>%
   mutate( event_type = factor( event_type, levels = c( "move-in", "move-out", "death" ) ),
-          survey_year = fct_rev( survey_year ) )
+          survey_year = fct_rev( survey_year ),
+          event_age = year( date ) - birth_year )
 summary( dates_all_2002_2014 )
-
-dates_all_2002_2014 <- dates_all_2002_2014 %>%
-  group_by( survey_year ) %>%
-  mutate( individual_id = dense_rank( lopnr ) ) %>% # generate continuous pseudo ID number
-  ungroup()
-summary( dates_all_2002_2014$individual_id )
-
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$lopnr ) ) # 5,503 in SPHC 2002
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$individual_id )
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$lopnr ) ) # 6,938 in SPHC 2006
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$individual_id )
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$lopnr ) ) # 5,208 in SPHC 2010
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$individual_id )
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$lopnr ) ) # 3,182 in SPHC 2014
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$individual_id )
 
 # check if there are duplicate events
 id_with_duplicate_events <- dates_all_2002_2014 %>%
@@ -450,11 +452,11 @@ id_with_duplicate_events <- dates_all_2002_2014 %>%
   pull( lopnr ) %>%
   unique() # 6
 
-View(
-  dates_all_2002_2014 %>%
-  filter( lopnr %in% id_with_duplicate_events ) %>%
-  arrange( lopnr, date ) 
-  )
+#View(
+#  dates_all_2002_2014 %>%
+#  filter( lopnr %in% id_with_duplicate_events ) %>%
+#  arrange( lopnr, date ) 
+#  )
 
 # check if there is any event after death
 ids_with_death <- dates_all_2002_2014 %>%
@@ -470,14 +472,51 @@ dates_all_2002_2014 %>%
   ungroup() %>%
   filter( date > death_date ) # 0
 
+# check for duplicate event-date combinations
+dates_all_2002_2014 %>%
+  count( lopnr, event_type, date ) %>%
+  filter( n > 1 ) # 0
+
+# check duration between events
+dates_all_2002_2014 %>%
+  arrange( lopnr, date ) %>%            
+  group_by( lopnr ) %>%                   
+  mutate(
+    next_event = lead( event_type ),
+    next_date = lead( date ),
+    duration = as.numeric( difftime( next_date, date, units = "days" ) ) ) %>%
+  ungroup() %>%
+  select( next_event, next_date, duration ) %>%
+  summary()
+
+# prepare for plotting
+dates_all_2002_2014 <- dates_all_2002_2014 %>%
+  group_by( survey_year ) %>%
+  mutate( individual_id = dense_rank( lopnr ) ) %>% # generate continuous pseudo ID number
+  ungroup()
+summary( dates_all_2002_2014$individual_id )
+
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$lopnr ) ) # 5,503 in SPHC 2002
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$individual_id )
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$lopnr ) ) # 6,938 in SPHC 2006
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$individual_id )
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$lopnr ) ) # 5,208 in SPHC 2010
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$individual_id )
+length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$lopnr ) ) # 3,182 in SPHC 2014
+max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$individual_id )
+
 
 # plotting
 sampling_lines <- data.frame(
   survey_year = c( "SPHC 2002", "SPHC 2006", "SPHC 2010", "SPHC 2014" ),
-  x = as.Date( c( "2002-10-08", "2006-08-09", "2009-12-31", "2014-08-31" ) ),
-  yend = c( 5503 + 40, 6938 + 40, 5208 + 40, 3182 + 40 ),
-  label = c( "", "", "", "" )
+  x = as.Date( c( "2007-02-28", "2006-08-09", "2009-12-31", "2014-08-31" ) ),
+  yend = c( 5503 + 40, 6938 + 40, 5208 + 40, 3182 + 40 )
   )
+
+# check for exact date matches per survey year
+dates_all_2002_2014 %>%
+  left_join( sampling_lines %>% select( survey_year, x ), by = "survey_year" ) %>%
+  filter( date == x ) # 0
 
 p_follow_up_2002_2014 <- 
   ggplot( dates_all_2002_2014,
@@ -536,102 +575,143 @@ p_follow_up_2002_2014 <-
     survey_year == "SPHC 2014" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 2000, 3000 ) ) ) )
 
 p_follow_up_2002_2014
-ggsave( "Draft plots/registry_follow_up_2002_2014.png", plot = p_follow_up_2002_2014, width = 15, height = 9, dpi = 600 )
-
-
-
-
-
-person_time_2010 <- calculate_person_time( dates_all, "2009-12-31", "2010-12-31" )  
-sum( person_time_2010$duration_years )
-
-
-
-mortality_date_2002_2014 <- m %>%
-  select( lopnr, death_date ) %>%
-  filter( death_date != "" ) %>%
-  mutate( death_date = as.Date( death_date, format = "%Y%m%d" ) ) %>%
-  left_join( d_pooled_cohort_cleaned %>%
-               filter( survey_year != "SPHC 2021" & !is.na( lopnr ) ) %>%
-               select( lopnr, survey_year ),
-             by = "lopnr" ) %>%
-  rename( migrationdate = death_date ) %>%
-  mutate( Posttyp = factor( "Death" ) )
-summary( mortality_date_2002_2014 ) # 8,614
-
-all_date_2002_2014 <- bind_rows(
-  migration_date_2002_2014,
-  mortality_date_2002_2014
-  )
-summary( all_date_2002_2014 )
-
-plot_data <- all_date_2002_2014 %>%
-  group_by( lopnr ) %>%
-  arrange( migrationdate ) %>%
-  mutate(
-    start_date = case_when(
-      row_number() == 1 & first( Posttyp ) == "Inv" ~ migrationdate,
-      row_number() == 1 & first( Posttyp ) %in% c( "Utv", "Death" ) ~ as.Date( "1990-01-08" ),
-      row_number() > 1 ~ migrationdate,
-      TRUE ~ NA_Date_ 
-      ),
-    
-    end_date = case_when(
-      Posttyp == "Death" ~ migrationdate,
-      
-      n() == 1 & Posttyp == "Inv" ~ as.Date( "2021-12-31" ),
-      
-      row_number() == 1 & Posttyp == "Utv" ~ migrationdate,
-      row_number() == 1 & n() > 1 ~ lead( migrationdate ) - 1,  # First row in multi-row group
-      
-      # Intermediate and last row logic
-      row_number() < n() ~ lead(migrationdate) - 1,  # Intermediate rows
-      row_number() == n() & Posttyp == "Inv" ~ as.Date("2021-12-31"),  # Last row with Inv
-      row_number() == n() & Posttyp %in% c("Utv", "Death") ~ migrationdate,
-      
-      TRUE ~ NA_Date_
-      )
-    ) %>%
-  ungroup()
-
-summary( plot_data )
-
-filtered_data <- plot_data %>%
-  group_by( lopnr ) %>%
-  arrange( migrationdate ) %>%
-  filter( !( Posttyp == "Utv" & row_number() > 1 ) ) %>%
-  ungroup()
-summary( filtered_data )
-
-subset_data <- filtered_data %>%
-  filter(lopnr %in% head(unique(lopnr), 10))
-
-ggplot(filtered_data, aes(
-  x = start_date, 
-  xend = end_date, 
-  y = as.factor(lopnr), 
-  yend = as.factor(lopnr), 
-  color = Posttyp
-)) +
-  geom_segment(size = 1.2) +
-  labs(
-    title = "Gantt Chart of Events by lopnr Faceted by Survey Year",
-    x = "Date",
-    y = "lopnr",
-    color = "Posttyp"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.y = element_blank(), # Hide y-axis labels for clarity
-    panel.grid.major.y = element_blank(), # Remove horizontal grid lines
-    panel.grid.minor = element_blank()
-  ) 
+#ggsave( "Draft plots/registry_follow_up_2002_2014.png", plot = p_follow_up_2002_2014, width = 15, height = 9, dpi = 600 )
 ```
 
-### 5. Health Outcomes
-#### 5.1. Use of antidepressants and anxiolytics
+### 5. Registry-Based Health Outcomes
+#### 5.1. Complete-case analysis
 ```{r}
 ### SPHC 2002 to 2014 ###
+
+# use of antidepressants and anxiolytics
+atc_2002_2014_original <- read_sas('/Volumes/LGBT Project data/Swedish Registers/atc_2002_2014.sas7bdat') %>%
+  filter( !grepl( "^N05CD", ATC ) ) # include participants who had at least one dispensed prescription of N05B or N06A from 2005-06-30 to 2021-12-31
+
+# check variables
+summary( atc_2002_2014_original )
+length( unique( atc_2002_2014_original$lopnr ) ) # 44,963 individuals had any dispensed prescription
+unique( atc_2002_2014_original$ATC )
+length( intersect( atc_2002_2014_original$lopnr, pre2021_selected$lopnr ) ) # 44,963
+length( intersect( atc_2002_2014_original$lopnr, dates_all_2002_2014$lopnr ) ) # 9,519
+
+atc_2002_2014 <- atc_2002_2014_original %>%
+  select( "lopnr", "ATC", "EDATUM" ) %>%
+  mutate( 
+    drug_class = as.factor( 
+      case_when(
+        grepl( "^N06A", ATC ) ~ "N06A",
+        grepl( "^N05B", ATC ) ~ "N05B" ) ),
+    year = year( EDATUM ) )
+
+summary( atc_2002_2014 )
+length( unique( atc_2002_2014$lopnr ) ) # 44,963
+
+# prepare and merge datasets
+atc_2002_2014_summary <- atc_2002_2014 %>%
+  group_by( lopnr, drug_class, year ) %>%
+  summarise( prescription_count = n(), .groups = "drop" ) %>%
+  pivot_wider(
+    names_from = drug_class,
+    values_from = prescription_count,
+    names_prefix = "prescription_count_",
+    values_fill = 0
+  ) %>%
+  mutate( 
+    use_N06A = as.factor( ifelse( prescription_count_N06A > 0, "Yes", "No" ) ),
+    use_N05B = as.factor( ifelse( prescription_count_N05B > 0, "Yes", "No" ) ) )
+summary( atc_2002_2014_summary )
+
+all_combos <- expand.grid(
+  lopnr = unique( pre2021_selected$lopnr ),
+  year = 2005:2021
+  )
+
+all_combos <- as_tibble( all_combos ) %>%
+  left_join( pre2021_selected %>% select( lopnr, sexual_identity_baseline, generation, birth_year ), by = "lopnr" ) %>%
+  mutate( age_in_year = year - birth_year ) %>%
+  filter( age_in_year >= 12 )
+
+atc_2002_2014_summary_cc <- all_combos %>%
+  left_join( atc_2002_2014_summary, by = c( "lopnr", "year" ) ) %>%
+  mutate( 
+    prescription_count_N06A = replace_na( prescription_count_N06A, 0 ),
+    prescription_count_N05B = replace_na( prescription_count_N05B, 0 ),
+    use_N06A = replace_na( use_N06A, "No" ),
+    use_N05B = replace_na( use_N05B, "No" ) )
+
+str( atc_2002_2014_summary_cc )
+
+
+summary_data <- atc_2002_2014_summary_cc %>%
+  group_by(year, generation, sexual_identity_baseline) %>%
+  summarise(
+    prevalence_N06A = mean(use_N06A == "Yes", na.rm = TRUE),
+    prevalence_N05B = mean(use_N05B == "Yes", na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  filter(
+    sexual_identity_baseline %in% c("Heterosexual", "Homosexual", "Bisexual")
+  )
+
+ggplot(summary_data, aes(x = year)) +
+  geom_line(aes(y = prevalence_N06A, color = sexual_identity_baseline), size = 1) +
+  geom_line(aes(y = prevalence_N05B, color = sexual_identity_baseline), linetype = "dashed", size = 1) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x = "Year",
+    y = "Prevalence (solid = N06A, dashed = N05B)",
+    color = "Sexual Identity",
+    title = "Yearly Prevalence of Antidepressants (N06A) and Anxiolytics (N05B) by Generation"
+  ) +
+  facet_wrap(~ generation) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold")
+  )
+
+mean_summary <- atc_2002_2014_summary_cc %>%
+  filter(sexual_identity_baseline %in% c("Heterosexual", "Homosexual", "Bisexual")) %>%
+  group_by(year, generation, sexual_identity_baseline) %>%
+  summarise(
+    mean_N06A = mean(prescription_count_N06A, na.rm = TRUE),
+    mean_N05B = mean(prescription_count_N05B, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(mean_summary, aes(x = year)) +
+  geom_line(aes(y = mean_N06A, color = sexual_identity_baseline), size = 1) +
+  geom_line(aes(y = mean_N05B, color = sexual_identity_baseline), linetype = "dashed", size = 1) +
+  labs(
+    x = "Year",
+    y = "Mean Number of Prescriptions (solid = N06A, dashed = N05B)",
+    color = "Sexual Identity",
+    title = "Mean Number of Prescriptions by Generation and Sexual Identity"
+  ) +
+  facet_wrap(~ generation) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold")
+  )
+
+
+
+
+# cross check data
+summary( d_2010_complete$prescription_count_2010_N06A )
+sum( d_2010_complete$prescription_count_2010_N06A, na.rm = TRUE )
+sum( atc_2010_summary_wide$prescription_count_2010_N06A )
+summary( d_2010_complete$prescription_count_2010_N05B )
+sum( d_2010_complete$prescription_count_2010_N05B, na.rm = TRUE )
+sum( atc_2010_summary_wide$prescription_count_2010_N05B )
+table( d_2010_complete$prescribed_2010_N06A, useNA = "always" )
+table( atc_2010_summary_wide$prescribed_2010_N06A, useNA = "always" )
+table( d_2010_complete$prescribed_2010_N05B, useNA = "always" )
+table( atc_2010_summary_wide$prescribed_2010_N05B, useNA = "always" )
+
+
 
 atc_2002_2014 <- read_sas('/Volumes/LGBT Project data/Swedish Registers/atc_2002_2014.sas7bdat') %>%
   filter( !grepl( "^N05CD", ATC ) ) # include participants who had at least one dispensed prescription of N05B or N06A from 2005-06-30 to 2021-12-31
