@@ -394,7 +394,7 @@ nrow(
     group_by( lopnr ) %>%                      
     slice( 1 ) %>%                            
     ungroup() %>%
-    filter( event_type == "move-in" ) ) # 8,129 had move-in as the first event between 1990 and 2021
+    filter( event_type == "move-in" ) ) # 8,129 had move-in as the first event
 
 nrow(
   migration_date_2002_2014 %>%
@@ -417,8 +417,8 @@ date_2002_2014 %>%
   count( lengths )
 
 death_date_2002_2014 <- date_2002_2014 %>%
-  filter( death_date != "" ) %>%
   select( "lopnr", "death_date" ) %>%
+  filter( death_date != "" ) %>%
   mutate( death_date = as.Date( death_date, format = "%Y%m%d" ),
           event_type = "death" ) %>%
   rename( date = death_date )
@@ -429,17 +429,27 @@ length( intersect( unique( death_date_2002_2014$lopnr ), pre2021_selected$lopnr 
 
 # merge migration dates and death dates
 dates_all_2002_2014 <- bind_rows( migration_date_2002_2014, death_date_2002_2014 ) %>%
+  mutate( event_type = factor( event_type, levels = c( "move-in", "move-out", "death" ) ) ) %>%
   arrange( lopnr, date )
 summary( dates_all_2002_2014 )
 length( unique( dates_all_2002_2014$lopnr ) ) # 20,831
 length( intersect( unique( dates_all_2002_2014$lopnr ), pre2021_selected$lopnr ) ) # 20,831
 
 dates_all_2002_2014 <- dates_all_2002_2014 %>%
-  left_join( pre2021_selected %>% select( lopnr, survey_year, birth_year ), by = "lopnr" ) %>%
-  mutate( event_type = factor( event_type, levels = c( "move-in", "move-out", "death" ) ),
-          survey_year = fct_rev( survey_year ),
+  left_join( pre2021_selected %>% select( "lopnr", "birth_year", "survey_year" ), by = "lopnr" ) %>%
+  mutate( survey_year = fct_rev( survey_year ),
           event_age = year( date ) - birth_year )
 summary( dates_all_2002_2014 )
+
+# visualize age at death
+ggplot( dates_all_2002_2014 %>% filter( event_type == "death" ), 
+        aes( x = event_age ) ) +
+  geom_histogram( binwidth = 5, fill = "steelblue", color = "white" ) +
+  labs( x = "Age at Death",
+        y = "Number of Individuals" ) +
+  theme_minimal() +
+  facet_wrap( ~ survey_year,
+              scales = "free" )
 
 # check if there are duplicate events
 id_with_duplicate_events <- dates_all_2002_2014 %>%
@@ -458,13 +468,21 @@ id_with_duplicate_events <- dates_all_2002_2014 %>%
 #  arrange( lopnr, date ) 
 #  )
 
+dates_all_2002_2014_cleaned <- dates_all_2002_2014 %>%
+  arrange( lopnr, date ) %>%
+  group_by( lopnr ) %>%
+  filter( event_type != lag( event_type ) | is.na( lag( event_type ) ) ) %>% # arbitrarily exclude the second duplicate event
+  ungroup()
+
+#View( dates_all_2002_2014_cleaned %>% filter( lopnr %in% id_with_duplicate_events ) )
+
 # check if there is any event after death
-ids_with_death <- dates_all_2002_2014 %>%
+ids_with_death <- dates_all_2002_2014_cleaned %>%
   filter( event_type == "death" ) %>%
   pull( lopnr ) %>%
   unique()
 
-dates_all_2002_2014 %>%
+dates_all_2002_2014_cleaned %>%
   filter( lopnr %in% ids_with_death ) %>%
   arrange( lopnr, date ) %>%
   group_by( lopnr ) %>%
@@ -473,12 +491,12 @@ dates_all_2002_2014 %>%
   filter( date > death_date ) # 0
 
 # check for duplicate event-date combinations
-dates_all_2002_2014 %>%
+dates_all_2002_2014_cleaned %>%
   count( lopnr, event_type, date ) %>%
   filter( n > 1 ) # 0
 
 # check duration between events
-dates_all_2002_2014 %>%
+dates_all_2002_2014_cleaned %>%
   arrange( lopnr, date ) %>%            
   group_by( lopnr ) %>%                   
   mutate(
@@ -490,20 +508,20 @@ dates_all_2002_2014 %>%
   summary()
 
 # prepare for plotting
-dates_all_2002_2014 <- dates_all_2002_2014 %>%
+dates_all_2002_2014_cleaned <- dates_all_2002_2014_cleaned %>%
   group_by( survey_year ) %>%
   mutate( individual_id = dense_rank( lopnr ) ) %>% # generate continuous pseudo ID number
   ungroup()
-summary( dates_all_2002_2014$individual_id )
+summary( dates_all_2002_2014_cleaned )
 
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$lopnr ) ) # 5,503 in SPHC 2002
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2002", ]$individual_id )
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$lopnr ) ) # 6,938 in SPHC 2006
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2006", ]$individual_id )
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$lopnr ) ) # 5,208 in SPHC 2010
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2010", ]$individual_id )
-length( unique( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$lopnr ) ) # 3,182 in SPHC 2014
-max( dates_all_2002_2014[ dates_all_2002_2014$survey_year == "SPHC 2014", ]$individual_id )
+length( unique( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2002", ]$lopnr ) ) # 5,503 in SPHC 2002
+max( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2002", ]$individual_id )
+length( unique( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2006", ]$lopnr ) ) # 6,938 in SPHC 2006
+max( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2006", ]$individual_id )
+length( unique( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2010", ]$lopnr ) ) # 5,208 in SPHC 2010
+max( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2010", ]$individual_id )
+length( unique( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2014", ]$lopnr ) ) # 3,182 in SPHC 2014
+max( dates_all_2002_2014_cleaned[ dates_all_2002_2014_cleaned$survey_year == "SPHC 2014", ]$individual_id )
 
 
 # plotting
@@ -514,12 +532,12 @@ sampling_lines <- data.frame(
   )
 
 # check for exact date matches per survey year
-dates_all_2002_2014 %>%
+dates_all_2002_2014_cleaned %>%
   left_join( sampling_lines %>% select( survey_year, x ), by = "survey_year" ) %>%
   filter( date == x ) # 0
 
-p_follow_up_2002_2014 <- 
-  ggplot( dates_all_2002_2014,
+p1_follow_up_2002_2014 <- 
+  ggplot( dates_all_2002_2014_cleaned,
           aes( x = date, y = individual_id, color = event_type ) ) +
   
   geom_point( size = 1.5 ) +
@@ -574,8 +592,141 @@ p_follow_up_2002_2014 <-
     survey_year == "SPHC 2010" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000 ) ),
     survey_year == "SPHC 2014" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 2000, 3000 ) ) ) )
 
-p_follow_up_2002_2014
-#ggsave( "Draft plots/registry_follow_up_2002_2014.png", plot = p_follow_up_2002_2014, width = 15, height = 9, dpi = 600 )
+p1_follow_up_2002_2014
+# ggsave( "Draft plots/registry_follow_up_2002_2014_(1).png", plot = p1_follow_up_2002_2014, width = 15, height = 9, dpi = 600 )
+
+
+# identify those whose first event is move-out or death
+start_with_exit <- dates_all_2002_2014_cleaned %>%
+  arrange( lopnr, date ) %>%
+  group_by( lopnr ) %>%
+  slice( 1 ) %>%
+  filter( event_type %in% c( "move-out", "death" ) ) %>%
+  pull( lopnr )
+
+summary( dates_all_2002_2014_cleaned %>% filter( lopnr %in% start_with_exit ) )
+
+artificial_entries <- tibble(
+  lopnr = start_with_exit,
+  event_type = "move-in-artificial",
+  date = as.Date( "1990-01-01" ) )
+
+# identify those whose last event is move-in
+end_with_entry <- dates_all_2002_2014_cleaned %>%
+  arrange( lopnr, date ) %>%
+  group_by( lopnr ) %>%
+  slice_tail( n = 1 ) %>%
+  filter( event_type == "move-in" ) %>%
+  pull( lopnr )
+
+summary( dates_all_2002_2014_cleaned %>% filter( lopnr %in% end_with_entry ) )
+
+artificial_exits <- tibble(
+  lopnr = end_with_entry,
+  event_type = "move-out-artificial",
+  date = as.Date( "2021-12-31" ) )
+
+dates_all_2002_2014_complete <- bind_rows( artificial_entries, 
+                                           artificial_exits,
+                                           dates_all_2002_2014_cleaned %>% select( "lopnr", "event_type", "date" ) ) %>%
+  left_join( pre2021_selected %>% 
+               select( "lopnr", "birth_year", "sex", "country_of_birth", "survey_year", "sexual_identity_baseline", "generation" ), by = "lopnr" ) %>%
+  mutate( event_type = as.factor( event_type ),
+          survey_year = fct_rev( survey_year ) ) %>%
+  arrange( lopnr, date )
+
+summary( dates_all_2002_2014_complete )
+dates_all_2002_2014_complete %>%
+  distinct( survey_year, lopnr ) %>%
+  count( survey_year, name = "n_unique_individuals" )
+
+follow_up_intervals <- dates_all_2002_2014_complete %>%
+  arrange( lopnr, date ) %>%
+  group_by( lopnr ) %>%
+  mutate(
+    next_date = lead( date ),
+    next_event = lead( event_type ),
+    y_pos = as.numeric( factor( lopnr ) )
+  ) %>%
+  filter( event_type %in% c( "move-in", "move-in-artificial" ) ) %>%
+  ungroup()
+
+summary( follow_up_intervals )
+
+p2_follow_up_2002_2014 <-
+  ggplot( follow_up_intervals_plot[ 1:1000, ], 
+        aes( x = date, xend = next_date, y = y_pos, yend = y_pos ) ) +
+  geom_segment( color = "steelblue", linewidth = 0.5 ) +
+  scale_y_continuous( breaks = NULL ) +
+  labs(
+    x = "Date",
+    y = "Individuals"  ) +
+  facet_wrap( ~ survey_year, scales = "free_y" ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank()
+  )
+
+  
+  ggplot( dates_all_2002_2014_cleaned,
+          aes( x = date, y = individual_id, color = event_type ) ) +
+  
+  geom_point( size = 1.5 ) +
+  
+  geom_segment(
+    data = sampling_lines,
+    aes( x = x, xend = x, y = -Inf, yend = yend ),
+    inherit.aes = FALSE,
+    linetype = "dashed",
+    color = "grey20",
+    linewidth = 0.5
+    ) +
+  
+  scale_color_manual(
+    values = c( "move-in" = "green", "move-out" = "blue", "death" = "red" ),
+    labels = c( "move-in" = "Move to Sweden", "move-out" = "Move outside Sweden", "death" = "Death" ) ) +
+
+  scale_x_date(
+    limits = as.Date( c( "1990-01-01", NA ) ),
+    breaks = seq( as.Date( "1990-01-01" ), as.Date( "2022-01-01" ), by = "2 years" ),
+    date_labels = "%Y",
+    expand = c( 0.02, 0 ) ) +
+  
+  labs( x = "Calendar Year", y = "Individual Pseudo ID Number" ) +
+  
+  theme_classic() +
+  theme(
+    axis.text.x = element_text( angle = 45, hjust = 1, family = "Arial", size = 11 ),
+    axis.text.y = element_text( family = "Arial", size = 11 ),
+    axis.title = element_text( family = "Arial", size = 12 ),
+    axis.line.y = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text( family = "Arial", size = 12, margin = margin( b = 5 ) ),
+    panel.spacing = unit( 1.5, "lines" ),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text( family = "Arial", size = 11 ) ) +
+  
+  facet_wrap( ~ survey_year,
+              scales = "free",
+              labeller = labeller(
+                survey_year = c(
+                  "SPHC 2002" = "SPHC 2002 (N = 5,503)",
+                  "SPHC 2006" = "SPHC 2006 (N = 6,938)",
+                  "SPHC 2010" = "SPHC 2010 (N = 5,208)",
+                  "SPHC 2014" = "SPHC 2014 (N = 3,182)" ) ) 
+              ) +
+  
+  ggh4x::facetted_pos_scales( y = list(
+    survey_year == "SPHC 2002" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000 ) ),
+    survey_year == "SPHC 2006" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000, 7000 ) ),
+    survey_year == "SPHC 2010" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 3000, 5000 ) ),
+    survey_year == "SPHC 2014" ~ scale_y_continuous( expand = c( 0.02, 0 ), breaks = c( 1, 1000, 2000, 3000 ) ) ) )
+
+p2_follow_up_2002_2014
+# ggsave( "Draft plots/registry_follow_up_2002_2014_(2).png", plot = p2_follow_up_2002_2014, width = 15, height = 9, dpi = 600 )
 ```
 
 ### 5. Registry-Based Health Outcomes
